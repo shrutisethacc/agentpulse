@@ -1,0 +1,45 @@
+# ── Agent framework ─────────────────────────────────────────────────────────────
+langgraph==0.2.60
+langchain==0.3.14
+langchain-community==0.3.14
+langchain-ollama==0.2.2        # Ollama embeddings only (nomic-embed-text for FAISS RAG)
+langchain-openai==1.2.2        # Azure OpenAI for agent responses
+
+# ── Azure OpenAI / OpenAI SDK ───────────────────────────────────────────────────
+openai>=1.30.0                 # Direct SDK used by AzureJudge (DeepEval custom wrapper)
+python-dotenv==1.0.1
+
+# ── Experiment tracking & tracing ───────────────────────────────────────────────
+mlflow==2.22.5
+
+# ── API server ──────────────────────────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn==0.32.1
+
+# ── Load testing ────────────────────────────────────────────────────────────────
+locust==2.32.3
+
+# ── Quality evaluation (LLM-as-judge via Azure OpenAI) ─────────────────────────
+# IMPORTANT: always install via the venv — never system Python
+# uv pip install deepeval==4.0.2 --python .venv\Scripts\python.exe
+deepeval==4.0.2
+
+# ── Live dashboard ──────────────────────────────────────────────────────────────
+streamlit==1.41.1
+plotly==5.24.1
+
+# ── Vector store for RAG ────────────────────────────────────────────────────────
+faiss-cpu==1.9.0
+
+# ── PDF report export (Playwright — real browser render, supports D3.js/CSS) ───
+# After pip install, also run: playwright install chromium
+playwright>=1.44.0
+jinja2==3.1.4
+
+# ── Data & utilities ────────────────────────────────────────────────────────────
+pydantic==2.10.4
+pyyaml==6.0.2
+requests==2.32.3
+numpy>=1.26.0
+pandas>=2.0.0
+matplotlib>=3.8.0

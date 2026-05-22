@@ -1,0 +1,188 @@
+<mxfile host="app.diagrams.net" modified="2026-05-18" agent="Claude" version="24.0.0">
+  <diagram id="AIEvalsArchitecture" name="AI Evals Framework">
+    <mxGraphModel dx="1422" dy="762" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1300" pageHeight="950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== TITLE ===== -->
+        <mxCell id="title" value="AI Evals Framework — Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=20;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== LOAD TESTING LAYER — background ===== -->
+        <mxCell id="lt_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=40;" vertex="1" parent="1">
+          <mxGeometry x="60" y="80" width="500" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="lt_label" value="Load Testing Layer" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="70" y="84" width="160" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Locust -->
+        <mxCell id="locust" value="&lt;b&gt;Locust Load Tester&lt;/b&gt;&lt;br&gt;Port 8089&lt;br&gt;12 IT helpdesk queries · 50 users" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="80" y="105" width="200" height="58" as="geometry" />
+        </mxCell>
+
+        <!-- Direct API Call -->
+        <mxCell id="direct" value="&lt;b&gt;Direct API Call&lt;/b&gt;&lt;br&gt;curl / integration tests&lt;br&gt;POST /invoke" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="105" width="200" height="58" as="geometry" />
+        </mxCell>
+
+        <!-- ===== FASTAPI ===== -->
+        <mxCell id="fastapi" value="&lt;b&gt;FastAPI Agent API&lt;/b&gt;&lt;br&gt;Port 8001 · GET /health · POST /invoke" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#555555;fontSize=12;fontStyle=0;" vertex="1" parent="1">
+          <mxGeometry x="205" y="240" width="280" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- ===== LANGGRAPH PIPELINE — background ===== -->
+        <mxCell id="lg_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;opacity=60;" vertex="1" parent="1">
+          <mxGeometry x="60" y="335" width="870" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="lg_label" value="LangGraph StateGraph Pipeline (AgentState flows left → right)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="70" y="340" width="420" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Node 1 -->
+        <mxCell id="n1" value="&lt;b&gt;1. Classify Intent&lt;/b&gt;&lt;br&gt;VPN · PASSWORD&lt;br&gt;HARDWARE · SOFTWARE · OTHER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="362" width="175" height="72" as="geometry" />
+        </mxCell>
+
+        <!-- Node 2 -->
+        <mxCell id="n2" value="&lt;b&gt;2. Retrieve Knowledge&lt;/b&gt;&lt;br&gt;FAISS semantic search&lt;br&gt;top-k=3 · intent-filtered" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="295" y="362" width="175" height="72" as="geometry" />
+        </mxCell>
+
+        <!-- Node 3 -->
+        <mxCell id="n3" value="&lt;b&gt;3. Generate Response&lt;/b&gt;&lt;br&gt;Prompt = query + context&lt;br&gt;Azure OpenAI gpt-5.2-chat-2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="510" y="362" width="175" height="72" as="geometry" />
+        </mxCell>
+
+        <!-- Node 4 -->
+        <mxCell id="n4" value="&lt;b&gt;4. Decide Escalation&lt;/b&gt;&lt;br&gt;confidence &lt; 0.4 or OTHER&lt;br&gt;→ sets escalate flag" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="725" y="362" width="175" height="72" as="geometry" />
+        </mxCell>
+
+        <!-- ===== DATA / MODEL LAYER ===== -->
+        <!-- FAISS Vector Index -->
+        <mxCell id="faiss" value="&lt;b&gt;FAISS Vector Index&lt;/b&gt;&lt;br&gt;In-memory · Lazy build&lt;br&gt;~58ms retrieval after warm-up" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="185" y="525" width="175" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Knowledge Base -->
+        <mxCell id="kb" value="&lt;b&gt;Knowledge Base&lt;/b&gt;&lt;br&gt;vpn_issues.txt&lt;br&gt;password_reset.txt&lt;br&gt;hardware_faults.txt&lt;br&gt;software_install.txt" style="shape=note;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;size=14;" vertex="1" parent="1">
+          <mxGeometry x="395" y="525" width="165" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Ollama -->
+        <mxCell id="ollama" value="&lt;b&gt;Ollama (Embeddings Only)&lt;/b&gt;&lt;br&gt;Port 11434&lt;br&gt;nomic-embed-text → FAISS RAG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="600" y="525" width="195" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Azure OpenAI -->
+        <mxCell id="azure_oai" value="&lt;b&gt;Azure OpenAI&lt;/b&gt;&lt;br&gt;gpt-5.2-chat-2&lt;br&gt;Agent responses + DeepEval judge" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="525" width="195" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Phase 4 -->
+        <mxCell id="phase4" value="&lt;b&gt;Phase 4: DeepEval Scorer&lt;/b&gt;&lt;br&gt;evals/eval_runner.py&lt;br&gt;AnswerRelevancyMetric&lt;br&gt;FaithfulnessMetric" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#aaaaaa;fontSize=10;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="860" y="525" width="185" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ===== MLFLOW LAYER — background ===== -->
+        <mxCell id="mlf_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="100" y="690" width="660" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="mlf_label" value="MLflow Tracking Server — Port 5000" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="110" y="695" width="280" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- MLflow Experiment 1 -->
+        <mxCell id="exp1" value="&lt;b&gt;it-helpdesk-agent-evals&lt;/b&gt;&lt;br&gt;query · intent · confidence · escalation&lt;br&gt;latency per node · 4 trace spans" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcccc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="120" y="718" width="265" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- MLflow Experiment 2 -->
+        <mxCell id="exp2" value="&lt;b&gt;it-helpdesk-load-test&lt;/b&gt;&lt;br&gt;requests_total · error_rate · RPS peak&lt;br&gt;p50 / p95 / p99 latency · user count" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcccc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="415" y="718" width="265" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- ===== PHASE 5 PLACEHOLDER ===== -->
+        <mxCell id="phase5" value="&lt;b&gt;Phase 5: Streamlit Dashboard&lt;/b&gt;&lt;br&gt;dashboard/app.py · Port 8501&lt;br&gt;Quality score vs. concurrency chart&lt;br&gt;PDF report export" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#aaaaaa;fontSize=10;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="860" y="690" width="185" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- ===== EDGES ===== -->
+
+        <!-- Locust → FastAPI -->
+        <mxCell id="e1" value="POST /invoke" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="locust" target="fastapi" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Direct → FastAPI -->
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="direct" target="fastapi" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FastAPI → Node1 (invokes graph) -->
+        <mxCell id="e3" value="graph.invoke()" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="fastapi" target="n1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Node1 → Node2 -->
+        <mxCell id="e4" value="intent" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="n1" target="n2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Node2 → Node3 -->
+        <mxCell id="e5" value="context" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="n2" target="n3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Node3 → Node4 -->
+        <mxCell id="e6" value="response" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="n3" target="n4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Node2 → FAISS -->
+        <mxCell id="e7" value="similarity_search(k=5)" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;" edge="1" source="n2" target="faiss" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FAISS → KB (reads text chunks) -->
+        <mxCell id="e8" value="reads paragraphs" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;" edge="1" source="faiss" target="kb" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FAISS → Ollama (get embeddings) -->
+        <mxCell id="e9" value="embed (nomic-embed-text)" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;" edge="1" source="faiss" target="ollama" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Node3 → Azure OpenAI (LLM generation) -->
+        <mxCell id="e10" value="generate (gpt-5.2-chat-2)" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;" edge="1" source="n3" target="azure_oai" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FastAPI → MLflow exp1 (per-run logging) -->
+        <mxCell id="e11" value="start_run() · log params/metrics · 4 spans" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;strokeColor=#b85450;" edge="1" source="fastapi" target="exp1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Locust → MLflow exp2 (on test stop) -->
+        <mxCell id="e12" value="on_test_stop → aggregate metrics" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;strokeColor=#b85450;" edge="1" source="locust" target="exp2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Phase4 ↔ MLflow exp1 (reads + writes) -->
+        <mxCell id="e13" value="reads runs · logs scores" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;strokeColor=#999999;endArrow=block;startArrow=block;startFill=0;endFill=1;" edge="1" source="phase4" target="exp1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Phase5 reads MLflow -->
+        <mxCell id="e14" value="reads experiments" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;strokeColor=#999999;" edge="1" source="phase5" target="mlf_bg" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

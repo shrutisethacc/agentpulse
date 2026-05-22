@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment / secrets — NEVER commit
+.env
+.env.local
+*.env
+
+# MLflow experiment data (local only — not source code)
+mlruns/
+mlartifacts/
+mlflow.db
+
+# FAISS index (built automatically from knowledge base on first run)
+data/faiss_index/
+
+# DeepEval local cache
+.deepeval/
+.deepeval_telemtry.txt
+
+# Generated PDF reports
+reports/output/
+
+# Logs
+*.log
+
+# VS Code (optional — remove these lines if your team wants to share workspace settings)
+.vscode/
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS (if any teammates use Mac)
+.DS_Store
+
+# Playwright browser binaries (installed separately with `playwright install chromium`)
+playwright-browsers/

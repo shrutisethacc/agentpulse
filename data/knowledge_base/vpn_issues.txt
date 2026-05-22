@@ -1,0 +1,29 @@
+VPN TROUBLESHOOTING RUNBOOK
+===========================
+
+ISSUE: VPN client fails to connect / authentication error
+STEPS:
+1. Verify corporate credentials are not expired. Navigate to https://myaccount.corp.com and confirm login succeeds before retrying VPN.
+2. Disconnect from any other VPN sessions (including personal VPNs). Only one VPN tunnel can be active at a time on corporate endpoints.
+3. Restart the VPN client: Close the application fully via system tray, wait 10 seconds, relaunch.
+4. Flush DNS cache: Open Command Prompt as Administrator, run `ipconfig /flushdns`, then retry VPN connection.
+5. Check VPN gateway status at https://status.corp-vpn.com. If the gateway is under maintenance, wait for the maintenance window to close.
+6. Reinstall the VPN client: Download the latest installer from the IT portal at https://itportal.corp.com/vpn, uninstall the existing client, reboot, then install the fresh copy.
+7. If error code is 691 (authentication failure), contact the Identity team at identity-support@corp.com to verify your MFA device registration.
+8. If error code is 800 or 868 (tunneling protocol mismatch), open a ticket referencing the gateway IP shown in the error and network team will adjust server-side settings.
+
+ISSUE: VPN connects but cannot reach internal resources
+STEPS:
+1. Ping the default gateway assigned by the VPN (visible in the VPN client status pane). If unreachable, the split-tunnel route table is corrupt — reconnect.
+2. Run `nslookup internalapp.corp.com` to verify internal DNS resolves correctly. If it fails, set primary DNS to 10.10.10.1 manually in adapter settings.
+3. Check if the destination service is whitelisted for your VPN profile. Submit a network access request via ServiceNow (category: Network Access, subcategory: VPN Route).
+4. Corporate firewall may be blocking the port. Confirm the application port with the app owner and request firewall rule via IT portal.
+
+ISSUE: VPN drops frequently / intermittent disconnections
+STEPS:
+1. Check local internet stability. Run a speed test to rule out ISP issues.
+2. Disable power-saving mode on the network adapter: Device Manager > Network Adapters > right-click > Properties > Power Management > uncheck "Allow the computer to turn off this device to save power".
+3. Switch to the secondary VPN gateway (endpoint list available on the IT portal). Primary gateway congestion causes drops during peak hours (9–11 AM, 1–3 PM IST).
+4. Update the VPN client to the latest version. Versions older than 5.4.x have a known keep-alive bug.
+
+ESCALATION: If none of the above steps resolve the issue, open a P2 ticket in ServiceNow with: VPN client version, OS version, error code/screenshot, and network adapter name.

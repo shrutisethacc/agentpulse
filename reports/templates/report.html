@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AgentPulse — Performance &amp; Quality Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+/* ── DESIGN TOKENS ── */
+:root {
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --bg:        #f8f9fa;
+  --surface:   #ffffff;
+  --surface2:  #f1f3f5;
+  --border:    #e9ecef;
+  --border2:   #dee2e6;
+  --text-1:    #0f172a;
+  --text-2:    #475569;
+  --text-3:    #94a3b8;
+  --purple:    #7c3aed;
+  --purple-2:  #6d28d9;
+  --purple-lt: #ede9fe;
+  --purple-bd: #c4b5fd;
+  --teal:      #0d9488;
+  --teal-lt:   #ccfbf1;
+  --blue:      #2563eb;
+  --blue-lt:   #dbeafe;
+  --pink:      #db2777;
+  --pink-lt:   #fce7f3;
+  --amber:     #d97706;
+  --amber-lt:  #fef3c7;
+  --green:     #059669;
+  --green-lt:  #d1fae5;
+  --green-bd:  #6ee7b7;
+  --red:       #dc2626;
+  --red-lt:    #fee2e2;
+  --red-bd:    #fca5a5;
+  --orange:    #ea580c;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text-1);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media print {
+  .cover-page, .page { page-break-after: always; }
+}
+
+.page {
+  width: 960px;
+  margin: 0 auto 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.topbar {
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+}
+.topbar-brand { display:flex; align-items:center; gap:10px; }
+.topbar-logo {
+  width: 28px; height: 28px;
+  background: var(--purple);
+  border-radius: 6px;
+  display: flex; align-items:center; justify-content:center;
+  color: #fff; font-weight: 800; font-size: 11px; letter-spacing:-0.02em;
+}
+.topbar-name { font-weight: 700; font-size: 14px; color: var(--text-1); }
+.topbar-sub  { font-size: 11px; color: var(--text-3); }
+.topbar-right { display:flex; align-items:center; gap:12px; }
+.topbar-meta { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
+.btn {
+  display: inline-flex; align-items:center; gap:6px;
+  padding: 6px 14px; border-radius: 6px;
+  font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border2);
+  background: var(--surface); color: var(--text-2); cursor: default;
+}
+.btn.primary { background: var(--purple); color:#fff; border-color:var(--purple); }
+
+.section-hdr { padding: 20px 24px 0; }
+.section-eyebrow {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--purple); margin-bottom: 3px;
+}
+.section-title {
+  font-size: 22px; font-weight: 800;
+  letter-spacing: -0.02em; color: var(--text-1); margin-bottom: 2px;
+}
+.section-desc { font-size: 12px; color: var(--text-3); margin-bottom: 0; }
+.section-body { padding: 16px 24px 28px; }
+
+.alert {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 16px; border-radius: 8px;
+  border: 1px solid var(--red-bd); background: var(--red-lt); margin-bottom: 16px;
+}
+.alert.warn { border-color: #fcd34d; background: var(--amber-lt); }
+.alert.info { border-color: var(--purple-bd); background: var(--purple-lt); }
+.alert-icon { font-size: 14px; margin-top: 1px; flex-shrink:0; }
+.alert-title { font-size: 12px; font-weight: 700; color: var(--red); }
+.alert.warn .alert-title { color: var(--amber); }
+.alert.info .alert-title { color: var(--purple); }
+.alert-body  { font-size: 11px; color: var(--text-2); margin-top: 2px; line-height: 1.6; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+.kpi-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px 18px; position: relative; overflow: hidden;
+}
+.kpi-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background: var(--border2); border-radius:8px 8px 0 0;
+}
+.kpi-card.kpi-fail::before   { background: var(--red); }
+.kpi-card.kpi-pass::before   { background: var(--green); }
+.kpi-card.kpi-purple::before { background: var(--purple); }
+.kpi-card.kpi-teal::before   { background: var(--teal); }
+.kpi-card.kpi-blue::before   { background: var(--blue); }
+.kpi-card.kpi-pink::before   { background: var(--pink); }
+
+.kpi-label { font-size: 10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-3); font-weight:600; margin-bottom:6px; }
+.kpi-val   { font-size: 28px; font-weight: 800; letter-spacing:-0.03em; line-height:1; color: var(--text-1); }
+.kpi-val.fail   { color: var(--red); }
+.kpi-val.pass   { color: var(--green); }
+.kpi-val.purple { color: var(--purple); }
+.kpi-val.teal   { color: var(--teal); }
+.kpi-val.mono   { font-family: var(--font-mono); font-size:22px; }
+.kpi-sub   { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+.kpi-delta { font-size: 11px; font-family:var(--font-mono); margin-top:4px; }
+.kpi-delta.neg { color: var(--red); }
+.kpi-delta.pos { color: var(--green); }
+
+.pill {
+  display: inline-flex; align-items:center; gap:4px;
+  font-size: 10px; font-weight: 700; letter-spacing:0.06em; padding: 3px 9px; border-radius: 4px;
+}
+.pill.pass   { background: var(--green-lt); color: var(--green); border: 1px solid var(--green-bd); }
+.pill.fail   { background: var(--red-lt);   color: var(--red);   border: 1px solid var(--red-bd); }
+.pill.warn   { background: var(--amber-lt); color: var(--amber); border: 1px solid #fcd34d; }
+.pill.purple { background: var(--purple-lt); color: var(--purple); border: 1px solid var(--purple-bd); }
+.pill.teal   { background: var(--teal-lt); color: var(--teal); border:1px solid #99f6e4; }
+.pill.blue   { background: var(--blue-lt); color: var(--blue); border:1px solid #93c5fd; }
+.pill.amber  { background: var(--amber-lt); color: var(--amber); border:1px solid #fcd34d; }
+
+.tbl { width:100%; border-collapse:collapse; }
+.tbl thead tr { background: var(--surface2); border-bottom: 2px solid var(--border2); }
+.tbl thead th {
+  padding: 9px 14px; font-size: 10px; font-weight: 700; letter-spacing:0.1em;
+  text-transform:uppercase; color: var(--text-3); text-align:left; white-space:nowrap;
+}
+.tbl tbody tr { border-bottom: 1px solid var(--border); transition:background 0.1s; }
+.tbl tbody tr:last-child { border-bottom: none; }
+.tbl tbody tr:hover { background: var(--surface2); }
+.tbl td { padding: 11px 14px; font-size: 12px; vertical-align: middle; }
+.tbl td.mono      { font-family:var(--font-mono); font-size:11px; color:var(--purple); }
+.tbl td.label     { font-weight:600; color:var(--text-1); }
+.tbl td.dim       { color: var(--text-3); font-size:11px; }
+.tbl td.right     { text-align:right; }
+.tbl td.center    { text-align:center; }
+.tbl td.num       { font-family:var(--font-mono); font-size:12px; }
+.tbl td.pass-num  { font-family:var(--font-mono); font-size:12px; color:var(--green); font-weight:600; }
+.tbl td.fail-num  { font-family:var(--font-mono); font-size:12px; color:var(--red); font-weight:600; }
+.tbl td.delta-pos { font-family:var(--font-mono); font-size:11px; color:var(--green); }
+.tbl td.delta-neg { font-family:var(--font-mono); font-size:11px; color:var(--red); }
+.tbl tr.composite { background: var(--surface2); }
+.tbl tr.headline  { background: var(--red-lt); border-top: 2px solid var(--red); }
+.tbl tr.headline td { font-weight:700; }
+
+.bar-wrap { display:flex; align-items:center; gap:8px; min-width:140px; }
+.bar-track { flex:1; height:5px; background:var(--border); border-radius:3px; overflow:visible; position:relative; }
+.bar-fill  { height:5px; border-radius:3px; }
+.bar-thresh-marker { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--text-1); border-radius:1px; }
+.bar-num { font-family:var(--font-mono); font-size:11px; font-weight:600; min-width:38px; }
+.bar-num.pass { color:var(--green); }
+.bar-num.fail { color:var(--red); }
+
+.cat { font-size:9px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:2px 7px; border-radius:3px; white-space:nowrap; }
+.cat-rr  { background:var(--blue-lt);   color:var(--blue);   border:1px solid #93c5fd; }
+.cat-rg  { background:var(--teal-lt);   color:var(--teal);   border:1px solid #99f6e4; }
+.cat-hd  { background:var(--purple-lt); color:var(--purple); border:1px solid var(--purple-bd); }
+.cat-sf  { background:var(--amber-lt);  color:var(--amber);  border:1px solid #fcd34d; }
+.cat-cp  { background:var(--surface2);  color:var(--text-3); border:1px solid var(--border2); }
+
+.intent { font-size:9px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:2px 8px; border-radius:3px; border:1px solid var(--border2); background:var(--surface2); color:var(--text-2); }
+
+.chart-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+.chart-card-hdr {
+  padding: 14px 18px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items:flex-start; justify-content:space-between;
+}
+.chart-card-title { font-size: 13px; font-weight: 700; color:var(--text-1); }
+.chart-card-sub   { font-size: 11px; color:var(--text-3); margin-top:2px; }
+.chart-card-body  { padding: 16px 18px; }
+
+.method-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.method-card { border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; border-left: 4px solid var(--border2); }
+.method-card.purple { border-left-color: var(--purple); }
+.method-card.teal   { border-left-color: var(--teal); }
+.method-eyebrow { font-size:9px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-3); margin-bottom:6px; }
+.method-title   { font-size:13px; font-weight:700; margin-bottom:8px; }
+.method-body    { font-size:12px; color:var(--text-2); line-height:1.7; }
+.method-body code { font-family:var(--font-mono); font-size:10.5px; background:var(--surface2); padding:1px 5px; border-radius:3px; }
+
+.tool-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+.tool-card { border: 1px solid var(--border); border-radius: 8px; padding: 16px; border-top: 3px solid var(--border2); }
+.tool-card.purple { border-top-color: var(--purple); }
+.tool-card.teal   { border-top-color: var(--teal); }
+.tool-card.blue   { border-top-color: var(--blue); }
+.tool-card.amber  { border-top-color: var(--amber); }
+.tool-card.green  { border-top-color: var(--green); }
+.tool-name    { font-size:12px; font-weight:700; margin-bottom:3px; }
+.tool-version { font-family:var(--font-mono); font-size:9px; color:var(--text-3); margin-bottom:8px; }
+.tool-desc    { font-size:11px; color:var(--text-2); line-height:1.6; }
+.tool-chips   { display:flex; flex-wrap:wrap; gap:4px; margin-top:10px; }
+.chip { font-family:var(--font-mono); font-size:9px; padding:2px 7px; border-radius:3px; background:var(--surface2); color:var(--purple); border:1px solid var(--border2); }
+
+.divider { height:1px; background:var(--border); margin:20px 0; }
+.tbl-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:16px; overflow:hidden; }
+
+.rec-card { border-radius: 8px; border: 1px solid var(--border); padding: 14px 18px; margin-bottom: 8px; border-left: 4px solid var(--border); }
+.rec-high   { background: var(--red-lt);   border-left-color: var(--red); }
+.rec-medium { background: var(--amber-lt); border-left-color: var(--amber); }
+.rec-header { display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
+.rec-badge  { font-size:9px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; padding:2px 8px; border-radius:3px; }
+.badge-high   { background:var(--red);   color:#fff; }
+.badge-medium { background:var(--amber); color:#fff; }
+.rec-title   { font-size:13px; font-weight:700; color:var(--text-1); }
+.rec-metric  { font-family:var(--font-mono); font-size:11px; color:var(--text-2); margin-left:auto; }
+.rec-sla     { color:var(--text-3); }
+.rec-finding { font-size:12px; color:var(--text-2); margin-bottom:8px; }
+.rec-action-label { font-size:9px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-3); margin-bottom:4px; }
+.rec-action  { font-size:12px; color:var(--text-2); line-height:1.7; }
+
+.explain-list { display:flex; flex-direction:column; gap:4px; margin-bottom:0; }
+.explain-row  { border:1px solid var(--border); border-radius:6px; overflow:hidden; border-left:3px solid var(--border); }
+.explain-pass { border-left-color: var(--green); }
+.explain-fail { border-left-color: var(--red); }
+.explain-hdr  { display:flex; align-items:center; justify-content:space-between; padding:9px 14px; background:var(--surface2); font-size:12px; font-weight:600; cursor:default; }
+.explain-metric { font-family:var(--font-mono); color:var(--text-1); }
+.explain-score  { font-family:var(--font-mono); font-size:12px; font-weight:700; }
+.explain-body   { padding:10px 14px; font-size:12px; color:var(--text-2); line-height:1.7; border-top:1px solid var(--border); }
+
+.page-num { padding: 8px 24px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-3); font-family: var(--font-mono); text-align: right; background: var(--surface2); }
+
+.footer { padding: 20px 24px; border-top: 1px solid var(--border); background: var(--surface2); }
+.footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr; gap:24px; }
+.footer-brand-name { font-size:14px; font-weight:700; color:var(--text-1); margin-bottom:2px; }
+.footer-brand-sub  { font-size:11px; color:var(--text-3); margin-bottom:14px; }
+.footer-col-hdr { font-size:9px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-3); margin-bottom:8px; }
+.footer-links  { display:flex; flex-direction:column; gap:5px; }
+.footer-link   { font-size:11px; color:var(--text-2); }
+.footer-bottom { margin-top:16px; padding-top:16px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:10px; color:var(--text-3); font-family:var(--font-mono); }
+
+/* ── COVER PAGE — Accenture Design System ── */
+.cover-page { width: 960px; margin: 0 auto 24px; overflow: hidden; border: 1px solid #e0e0e0; border-top: 8px solid #A100FF; }
+.cover-top { background: #5C068C; padding: 52px 52px 48px; position: relative; overflow: hidden; }
+.cover-top::after { content:''; position:absolute; top:0; right:0; bottom:0; width:55%; background: linear-gradient(135deg, transparent 40%, rgba(161,0,255,0.18) 100%); pointer-events:none; }
+.cover-chevron { font-size: 36px; font-weight: 900; color: #A100FF; line-height: 1; margin-bottom: 48px; display: block; font-style: normal; }
+.cover-title-block { margin-bottom: 40px; }
+.cover-title { font-size: 52px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.0; color: #ffffff; margin-bottom: 0; }
+.cover-title-sub { font-size: 38px; font-weight: 400; letter-spacing: -0.02em; line-height: 1.1; color: #ffffff; opacity: 0.9; }
+.cover-subtitle { font-size: 13px; color: rgba(255,255,255,0.55); margin-bottom: 44px; margin-top: 12px; letter-spacing: 0.01em; }
+.cover-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); border-top: 1px solid rgba(255,255,255,0.15); padding-top: 28px; gap: 0; }
+.cover-kpi { padding-right: 24px; border-right: 1px solid rgba(255,255,255,0.12); }
+.cover-kpi:last-child { border-right: none; padding-right: 0; padding-left: 24px; }
+.cover-kpi:not(:first-child):not(:last-child) { padding: 0 24px; }
+.cover-kpi-val { font-size: 34px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-bottom: 5px; }
+.cover-kpi-val.pass { color: #4ade80; }
+.cover-kpi-val.fail { color: #f87171; }
+.cover-kpi-val.neutral { color: #fff; }
+.cover-kpi-label { font-size: 9px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+.cover-kpi-delta { font-size: 10px; font-family: var(--font-mono); margin-top: 4px; }
+.cover-kpi-delta.neg { color: #fca5a5; }
+.cover-kpi-delta.pos { color: #86efac; }
+.cover-bottom { background: #000000; padding: 32px 52px; display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; position: relative; }
+.cover-bottom::before { content: ''; position: absolute; top: 0; left: 52px; width: 40px; height: 3px; background: #A100FF; }
+.cover-meta-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 5px; }
+.cover-meta-val   { font-size: 12px; color: rgba(255,255,255,0.8); font-family: var(--font-mono); }
+.cover-meta-val.breach { color: #f87171; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ═══ COVER ═══ -->
+<div class="cover-page">
+  <div class="cover-top">
+    <span class="cover-chevron">&#62;</span>
+    <div class="cover-title-block">
+      <div class="cover-title">AgentPulse</div>
+      <div class="cover-title-sub">Performance &amp; Quality Report</div>
+    </div>
+    <div class="cover-subtitle">{{ agent_name }} · Accenture QE Capability · Powered by DeepEval + MLflow + Ollama</div>
+    <div class="cover-kpi-row">
+      <div class="cover-kpi">
+        <div class="cover-kpi-val {{ 'pass' if (stats.avg_quality or 0) >= (eval_cfg.get('min_quality_score', 0.65)) else 'fail' }}">{{ "%.3f"|format(stats.avg_quality or 0) }}</div>
+        <div class="cover-kpi-label">Quality Score</div>
+        <div class="cover-kpi-delta {{ 'pos' if (stats.avg_quality or 0) >= (eval_cfg.get('min_quality_score', 0.65)) else 'neg' }}">
+          {{ "%+.3f"|format((stats.avg_quality or 0) - eval_cfg.get('min_quality_score', 0.65)) }} vs target
+        </div>
+      </div>
+      <div class="cover-kpi">
+        <div class="cover-kpi-val {{ 'pass' if (stats.avg_faithfulness or 0) >= (eval_cfg.get('min_faithfulness_score', 0.70)) else 'fail' }}">{{ "%.3f"|format(stats.avg_faithfulness or 0) }}</div>
+        <div class="cover-kpi-label">Faithfulness</div>
+        <div class="cover-kpi-delta {{ 'pos' if (stats.avg_faithfulness or 0) >= (eval_cfg.get('min_faithfulness_score', 0.70)) else 'neg' }}">
+          {{ "%+.3f"|format((stats.avg_faithfulness or 0) - eval_cfg.get('min_faithfulness_score', 0.70)) }} vs target
+        </div>
+      </div>
+      <div class="cover-kpi">
+        <div class="cover-kpi-val {{ 'pass' if (stats.avg_rag or 0) >= (eval_cfg.get('min_rag_score', 0.70)) else 'fail' }}">{{ "%.3f"|format(stats.avg_rag or 0) }}</div>
+        <div class="cover-kpi-label">RAG Score</div>
+        <div class="cover-kpi-delta {{ 'pos' if (stats.avg_rag or 0) >= (eval_cfg.get('min_rag_score', 0.70)) else 'neg' }}">
+          {{ "%+.3f"|format((stats.avg_rag or 0) - eval_cfg.get('min_rag_score', 0.70)) }} vs target
+        </div>
+      </div>
+      <div class="cover-kpi">
+        <div class="cover-kpi-val {{ 'pass' if (stats.avg_safety or 0) >= (eval_cfg.get('min_safety_score', 0.70)) else 'fail' }}">{{ "%.3f"|format(stats.avg_safety or 0) }}</div>
+        <div class="cover-kpi-label">Safety Score</div>
+        <div class="cover-kpi-delta {{ 'pos' if (stats.avg_safety or 0) >= (eval_cfg.get('min_safety_score', 0.70)) else 'neg' }}">
+          {{ "%+.3f"|format((stats.avg_safety or 0) - eval_cfg.get('min_safety_score', 0.70)) }} vs target
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cover-bottom">
+    <div><div class="cover-meta-label">Agent Evaluated</div><div class="cover-meta-val">{{ agent_name }}</div></div>
+    <div><div class="cover-meta-label">Generated</div><div class="cover-meta-val">{{ generated_at }}</div></div>
+    <div><div class="cover-meta-label">Evaluation Runs</div><div class="cover-meta-val">{{ stats.scored_runs or 0 }} scored / {{ stats.total_runs or 0 }} total</div></div>
+    <div><div class="cover-meta-label">MLflow Tracking URI</div><div class="cover-meta-val">{{ mlflow_uri }}</div></div>
+    <div><div class="cover-meta-label">Eval Framework</div><div class="cover-meta-val">DeepEval 4.0.2 · MLflow 2.22.5</div></div>
+    <div><div class="cover-meta-label">SLA Status</div>
+      {% if sla_breaches > 0 %}
+      <div class="cover-meta-val breach">&#9888; BREACH DETECTED</div>
+      {% else %}
+      <div class="cover-meta-val" style="color:#4ade80;">&#10003; ALL PASS</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PAGE 1 — EXECUTIVE SUMMARY ═══ -->
+<div class="page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">AP</div>
+      <div><div class="topbar-name">AgentPulse</div><div class="topbar-sub">AI Evaluations</div></div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-meta">{{ date_range }}</div>
+      <div class="btn primary">&#8659; PDF Report</div>
+    </div>
+  </div>
+  <div class="section-hdr">
+    <div class="section-eyebrow">AI Agent Evaluation · Accenture QE Capability</div>
+    <div class="section-title">Executive Summary</div>
+    <div class="section-desc">SLA compliance overview · {{ stats.scored_runs or 0 }} scored runs · {{ agent_name }}</div>
+  </div>
+  <div class="section-body">
+    {% if sla_breaches > 0 %}
+    <div class="alert">
+      <div class="alert-icon">&#9888;</div>
+      <div>
+        <div class="alert-title">SLA Breach Detected — {{ sla_breaches }} metric(s) below threshold</div>
+        <div class="alert-body">
+          {% for r in metric_table if r.status == 'FAIL' %}{{ r.metric }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="alert info">
+      <div class="alert-icon">&#10003;</div>
+      <div>
+        <div class="alert-title">All SLA Targets Met</div>
+        <div class="alert-body">All {{ sla_ok }} evaluated metrics are within threshold across {{ stats.scored_runs or 0 }} scored runs.</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="kpi-grid">
+      <div class="kpi-card {{ 'kpi-fail' if (stats.avg_quality or 0) < eval_cfg.get('min_quality_score', 0.65) else 'kpi-pass' }}">
+        <div class="kpi-label">Quality Score</div>
+        <div class="kpi-val {{ 'fail' if (stats.avg_quality or 0) < eval_cfg.get('min_quality_score', 0.65) else 'pass' }}">{{ "%.3f"|format(stats.avg_quality or 0) }}</div>
+        <div class="kpi-sub">across {{ stats.scored_runs or 0 }} scored runs</div>
+        <div class="kpi-delta {{ 'neg' if (stats.avg_quality or 0) < eval_cfg.get('min_quality_score', 0.65) else 'pos' }}">
+          {{ '&#8595;' if (stats.avg_quality or 0) < eval_cfg.get('min_quality_score', 0.65) else '&#8593;' }} target &ge; {{ eval_cfg.get('min_quality_score', 0.65) }}
+        </div>
+      </div>
+      <div class="kpi-card {{ 'kpi-pass' if (stats.avg_faithfulness or 0) >= eval_cfg.get('min_faithfulness_score', 0.70) else 'kpi-fail' }}">
+        <div class="kpi-label">Faithfulness</div>
+        <div class="kpi-val {{ 'pass' if (stats.avg_faithfulness or 0) >= eval_cfg.get('min_faithfulness_score', 0.70) else 'fail' }}">{{ "%.3f"|format(stats.avg_faithfulness or 0) }}</div>
+        <div class="kpi-sub">across {{ stats.scored_runs or 0 }} scored runs</div>
+        <div class="kpi-delta {{ 'pos' if (stats.avg_faithfulness or 0) >= eval_cfg.get('min_faithfulness_score', 0.70) else 'neg' }}">
+          {{ '&#8593;' if (stats.avg_faithfulness or 0) >= eval_cfg.get('min_faithfulness_score', 0.70) else '&#8595;' }} target &ge; {{ eval_cfg.get('min_faithfulness_score', 0.70) }}
+        </div>
+      </div>
+      <div class="kpi-card {{ 'kpi-pass' if (stats.avg_safety or 0) >= eval_cfg.get('min_safety_score', 0.70) else 'kpi-fail' }}">
+        <div class="kpi-label">Safety Score</div>
+        <div class="kpi-val {{ 'pass' if (stats.avg_safety or 0) >= eval_cfg.get('min_safety_score', 0.70) else 'fail' }}">{{ "%.3f"|format(stats.avg_safety or 0) }}</div>
+        <div class="kpi-sub">avg · target &ge; {{ eval_cfg.get('min_safety_score', 0.70) }}</div>
+        <div class="kpi-delta {{ 'pos' if (stats.avg_safety or 0) >= eval_cfg.get('min_safety_score', 0.70) else 'neg' }}">
+          {{ '&#8593; PASS' if (stats.avg_safety or 0) >= eval_cfg.get('min_safety_score', 0.70) else '&#8595; FAIL' }}
+        </div>
+      </div>
+      <div class="kpi-card {{ 'kpi-fail' if (stats.avg_rag or 0) < eval_cfg.get('min_rag_score', 0.70) else 'kpi-pass' }}">
+        <div class="kpi-label">RAG Score</div>
+        <div class="kpi-val {{ 'fail' if (stats.avg_rag or 0) < eval_cfg.get('min_rag_score', 0.70) else 'pass' }}">{{ "%.3f"|format(stats.avg_rag or 0) }}</div>
+        <div class="kpi-sub">avg · target &ge; {{ eval_cfg.get('min_rag_score', 0.70) }}</div>
+        <div class="kpi-delta {{ 'neg' if (stats.avg_rag or 0) < eval_cfg.get('min_rag_score', 0.70) else 'pos' }}">
+          {{ '&#8595; FAIL' if (stats.avg_rag or 0) < eval_cfg.get('min_rag_score', 0.70) else '&#8593; PASS' }}
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:13px; font-weight:700; margin-bottom:10px;">SLA Compliance Summary</div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr>
+          <th>Metric</th><th>SLA Target</th><th>Measured (avg)</th><th>Delta</th><th>Status</th>
+        </tr></thead>
+        <tbody>
+          {% for r in metric_table %}
+          <tr>
+            <td class="label">{{ r.metric }}</td>
+            <td class="dim">{% if r.metric == 'toxicity' %}&le;{% else %}&ge;{% endif %} {{ r.threshold }}</td>
+            <td class="{{ 'pass-num' if r.status == 'PASS' else 'fail-num' }}">{{ "%.3f"|format(r.avg_score) }}</td>
+            <td class="{{ 'delta-pos' if r.status == 'PASS' else 'delta-neg' }}">{{ "%+.3f"|format(r.avg_score - r.threshold) }}</td>
+            <td><span class="pill {{ 'pass' if r.status == 'PASS' else 'fail' }}">{{ '&#10003; PASS' if r.status == 'PASS' else '&#10007; FAIL' }}</span></td>
+          </tr>
+          {% endfor %}
+          {% if stats.worst_p95 is defined %}
+          <tr style="background:var(--red-lt);">
+            <td class="label">p95 Latency</td>
+            <td class="dim">&le; {{ "{:,}".format(sla_cfg.get('p95_latency_ms', 15000)) }} ms</td>
+            <td class="fail-num">{{ "{:,}".format(stats.worst_p95|int) }} ms</td>
+            <td class="delta-neg">{{ "%.1f"|format(stats.worst_p95 / sla_cfg.get('p95_latency_ms', 15000)) }}&times; SLA</td>
+            <td><span class="pill fail">&#10007; FAIL</span></td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert warn" style="margin-bottom:0;">
+      <div class="alert-icon">&#8505;</div>
+      <div>
+        <div class="alert-title">Latency context — local CPU inference</div>
+        <div class="alert-body">AgentPulse runs on Ollama locally — actual infrastructure cost is $0. Latency reflects llama3.2:3b on CPU. GPU/cloud LLM deployment would achieve &lt;2s. Total cloud-equivalent cost: <strong>${{ "%.4f"|format(speed_kpis.get('total_cost', 0)) }}</strong> across {{ stats.scored_runs or 0 }} runs (GPT-4o-mini pricing).</div>
+      </div>
+    </div>
+  </div>
+  <div class="page-num">Page 1 of 7</div>
+</div>
+
+<!-- ═══ PAGE 2 — QUALITY METRICS ═══ -->
+<div class="page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">AP</div>
+      <div><div class="topbar-name">AgentPulse</div><div class="topbar-sub">Quality Evaluation</div></div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-meta">{{ date_range }}</div>
+      <div class="btn primary">&#8659; PDF Report</div>
+    </div>
+  </div>
+  <div class="section-hdr">
+    <div class="section-eyebrow">Quality Evaluation · AgentPulse</div>
+    <div class="section-title">Quality Score Overview</div>
+    <div class="section-desc">Composite scores + per-metric breakdown · DeepEval 4.0.2</div>
+  </div>
+  <div class="section-body">
+    <div class="chart-card">
+      <div class="chart-card-hdr">
+        <div>
+          <div class="chart-card-title">Composite Quality Scores per Run</div>
+          <div class="chart-card-sub">Quality · RAG · Helpdesk · Safety — dashed = Quality SLA ({{ eval_cfg.get('min_quality_score', 0.65) }})</div>
+        </div>
+      </div>
+      <div class="chart-card-body">
+        <div id="compositeChart" style="height:220px;"></div>
+      </div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:16px;">
+      <div class="chart-card-hdr">
+        <div>
+          <div class="chart-card-title">Average Score by Metric</div>
+          <div class="chart-card-sub">All scored runs · colour = category · vertical mark = SLA threshold</div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <span class="pill" style="background:var(--red-lt); color:var(--red); border-color:var(--red-bd);">Safety</span>
+          <span class="pill" style="background:#1e293b; color:#fff; border-color:#334155;">Helpdesk</span>
+          <span class="pill teal">RAG Ret</span>
+          <span class="pill" style="background:var(--teal-lt); color:var(--teal); border-color:#99f6e4;">RAG Gen</span>
+        </div>
+      </div>
+      <div class="chart-card-body">
+        <div id="metricChart" style="height:260px;"></div>
+      </div>
+    </div>
+
+    <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Recent Scored Runs</div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr>
+          <th>Run Name</th><th>Intent</th><th>Quality</th><th>RAG</th><th>Helpdesk</th><th>Safety</th><th>Faithfulness</th>
+        </tr></thead>
+        <tbody>
+          {% for r in scored_runs %}
+          <tr>
+            <td class="mono">{{ r.run_name }}</td>
+            <td><span class="intent">{{ r.intent }}</span></td>
+            <td class="{{ 'pass-num' if r.get('quality_score', 0) >= eval_cfg.get('min_quality_score', 0.65) else 'fail-num' }}">{{ "%.3f"|format(r.get('quality_score', 0)) if r.get('quality_score') is not none else '—' }}</td>
+            <td class="{{ 'pass-num' if r.get('rag_score', 0) >= eval_cfg.get('min_rag_score', 0.70) else 'fail-num' }}">{{ "%.3f"|format(r.get('rag_score', 0)) if r.get('rag_score') is not none else '—' }}</td>
+            <td class="{{ 'pass-num' if r.get('helpdesk_score', 0) >= eval_cfg.get('min_helpdesk_score', 0.60) else 'fail-num' }}">{{ "%.3f"|format(r.get('helpdesk_score', 0)) if r.get('helpdesk_score') is not none else '—' }}</td>
+            <td class="{{ 'pass-num' if r.get('safety_score', 0) >= eval_cfg.get('min_safety_score', 0.70) else 'fail-num' }}">{{ "%.3f"|format(r.get('safety_score', 0)) if r.get('safety_score') is not none else '—' }}</td>
+            <td class="{{ 'pass-num' if r.get('faithfulness', 0) >= eval_cfg.get('min_faithfulness_score', 0.70) else 'dim' }}">{{ "%.3f"|format(r.get('faithfulness', 0)) if r.get('faithfulness') is not none else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="dim" style="text-align:center; padding:20px;">No scored runs available</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="page-num">Page 2 of 7</div>
+</div>
+
+<!-- ═══ PAGE 3 — METRIC BREAKDOWN ═══ -->
+<div class="page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">AP</div>
+      <div><div class="topbar-name">AgentPulse</div><div class="topbar-sub">Metric Breakdown</div></div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-meta">{{ date_range }}</div>
+      <div class="btn primary">&#8659; PDF Report</div>
+    </div>
+  </div>
+  <div class="section-hdr">
+    <div class="section-eyebrow">Metric Breakdown · AgentPulse</div>
+    <div class="section-title">Full Metric Scorecard</div>
+    <div class="section-desc">All metrics · thresholds from config.yaml · aligned with RAGAS, DeepEval, Stanford HELM</div>
+  </div>
+  <div class="section-body">
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr>
+          <th>Metric</th><th>Category</th><th>Avg Score</th><th>Threshold</th><th>N</th><th>Status</th>
+        </tr></thead>
+        <tbody>
+          {% for r in metric_table %}
+          {% set cat_map = {'RAG Generation': 'cat-rg', 'RAG Retrieval': 'cat-rr', 'Helpdesk GEval': 'cat-hd', 'Safety': 'cat-sf', 'Composite': 'cat-cp'} %}
+          {% set is_composite = r.category == 'Composite' %}
+          {% set is_headline = r.metric == 'quality_score' %}
+          <tr class="{{ 'headline' if is_headline else ('composite' if is_composite else '') }}">
+            <td class="label" {% if is_composite %}style="font-style:italic; color:var(--text-2);"{% endif %}>{{ r.metric }}</td>
+            <td><span class="cat {{ cat_map.get(r.category, 'cat-cp') }}">{{ r.category }}</span></td>
+            {% if is_composite %}
+            <td class="{{ 'pass-num' if r.status == 'PASS' else 'fail-num' }}" {% if is_headline %}style="font-size:15px;"{% endif %}>{{ "%.3f"|format(r.avg_score) }}</td>
+            {% else %}
+            <td>
+              <div class="bar-wrap">
+                <span class="bar-num {{ 'pass' if r.status == 'PASS' else 'fail' }}">{{ "%.3f"|format(r.avg_score) }}</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:{{ [r.avg_score * 100, 100]|min }}%; background:{{ 'var(--green)' if r.status == 'PASS' else 'var(--red)' }};"></div>
+                  <div class="bar-thresh-marker" style="left:{{ r.threshold * 100 }}%;"></div>
+                </div>
+              </div>
+            </td>
+            {% endif %}
+            <td class="dim" {% if is_headline %}style="font-weight:700;"{% endif %}>{% if r.metric == 'toxicity' %}&le;{% else %}&ge;{% endif %} {{ r.threshold }}</td>
+            <td class="dim">{{ r.n }}</td>
+            <td><span class="pill {{ 'pass' if r.status == 'PASS' else 'fail' }}">{{ '&#10003; PASS' if r.status == 'PASS' else '&#10007; FAIL' }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="dim" style="text-align:center; padding:20px;">No metric data available</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="alert info" style="margin-bottom:0;">
+      <div class="alert-icon">&#8505;</div>
+      <div class="alert-body">Scoring thresholds are set in <code style="font-family:var(--font-mono); font-size:10px; background:rgba(124,58,237,0.1); padding:1px 5px; border-radius:3px;">config.yaml</code> and can be adjusted per client. Defaults follow RAGAS documentation (RAG metrics), DeepEval community standards (Helpdesk GEval), and Stanford HELM safety guidelines.</div>
+    </div>
+  </div>
+  <div class="page-num">Page 3 of 7</div>
+</div>
+
+<!-- ═══ PAGE 4 — SPEED & COST ═══ -->
+<div class="page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">AP</div>
+      <div><div class="topbar-name">AgentPulse</div><div class="topbar-sub">Speed &amp; Cost</div></div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-meta">{{ date_range }}</div>
+      <div class="btn primary">&#8659; PDF Report</div>
+    </div>
+  </div>
+  <div class="section-hdr">
+    <div class="section-eyebrow">Speed &amp; Cost · AgentPulse</div>
+    <div class="section-title">Speed &amp; Cost Overview</div>
+    <div class="section-desc">TTFT · Token throughput · Cloud-equivalent cost (GPT-4o-mini pricing)</div>
+  </div>
+  <div class="section-body">
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-teal">
+        <div class="kpi-label">Avg TTFT</div>
+        <div class="kpi-val mono teal">{{ "%.2f"|format(speed_kpis.get('avg_ttft', 0)) }}s</div>
+        <div class="kpi-sub">avg across runs</div>
+      </div>
+      <div class="kpi-card kpi-teal">
+        <div class="kpi-label">Avg Tokens/sec</div>
+        <div class="kpi-val mono teal">{{ "%.1f"|format(speed_kpis.get('avg_tps', 0)) }}</div>
+        <div class="kpi-sub">avg across runs</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Output Tokens</div>
+        <div class="kpi-val mono">{{ speed_kpis.get('avg_output_tokens', 0)|int }}</div>
+        <div class="kpi-sub">avg across runs</div>
+      </div>
+      <div class="kpi-card kpi-purple">
+        <div class="kpi-label">Total Est. Cost</div>
+        <div class="kpi-val mono purple">${{ "%.4f"|format(speed_kpis.get('total_cost', 0)) }}</div>
+        <div class="kpi-sub">across {{ speed_kpis.get('n_runs', 0) }} runs</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+      <div class="chart-card" style="margin:0;">
+        <div class="chart-card-hdr"><div>
+          <div class="chart-card-title">Time to First Token per Run</div>
+          <div class="chart-card-sub">TTFT (s) per agent run</div>
+        </div></div>
+        <div class="chart-card-body"><div id="ttftChart" style="height:160px;"></div></div>
+      </div>
+      <div class="chart-card" style="margin:0;">
+        <div class="chart-card-hdr"><div>
+          <div class="chart-card-title">Token Throughput per Run</div>
+          <div class="chart-card-sub">Tokens/sec</div>
+        </div></div>
+        <div class="chart-card-body"><div id="tpsChart" style="height:160px;"></div></div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+      <div class="chart-card" style="margin:0;">
+        <div class="chart-card-hdr"><div>
+          <div class="chart-card-title">Input vs Output Tokens per Run</div>
+          <div class="chart-card-sub">Token breakdown</div>
+        </div></div>
+        <div class="chart-card-body"><div id="tokenChart" style="height:160px;"></div></div>
+      </div>
+      <div class="chart-card" style="margin:0;">
+        <div class="chart-card-hdr"><div>
+          <div class="chart-card-title">Cloud-Equivalent Cost per Run</div>
+          <div class="chart-card-sub">Est. USD · GPT-4o-mini pricing</div>
+        </div></div>
+        <div class="chart-card-body"><div id="costChart" style="height:160px;"></div></div>
+      </div>
+    </div>
+
+    <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Per-Run Detail</div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr>
+          <th>Run</th><th>TTFT (s)</th><th>Tokens/sec</th><th>Input Tokens</th><th>Output Tokens</th><th>Est. Cost</th>
+        </tr></thead>
+        <tbody>
+          {% for r in speed_runs %}
+          <tr>
+            <td class="mono">{{ r.run_name }}</td>
+            <td class="num">{{ "%.1f"|format(r.get('ttft_seconds', 0)) if r.get('ttft_seconds') is not none else '—' }}</td>
+            <td class="num">{{ "%.1f"|format(r.get('tokens_per_second', 0)) if r.get('tokens_per_second') is not none else '—' }}</td>
+            <td class="num">{{ r.get('input_tokens', '—')|int if r.get('input_tokens') is not none else '—' }}</td>
+            <td class="num">{{ r.get('output_tokens', '—')|int if r.get('output_tokens') is not none else '—' }}</td>
+            <td class="pass-num">${{ "%.6f"|format(r.get('estimated_cost_usd', 0)) if r.get('estimated_cost_usd') is not none else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="dim" style="text-align:center; padding:20px;">No speed data available</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert info" style="margin-bottom:0;">
+      <div class="alert-icon">&#8505;</div>
+      <div>
+        <div class="alert-title">About Cost Estimates</div>
+        <div class="alert-body">AgentPulse runs on Ollama locally — actual cost is $0. The estimated cost uses GPT-4o-mini pricing ($0.15/1M input, $0.60/1M output) as a cloud reference for client budgeting. Total across {{ speed_kpis.get('n_runs', 0) }} runs: <strong>${{ "%.4f"|format(speed_kpis.get('total_cost', 0)) }}</strong>.</div>
+      </div>
+    </div>
+  </div>
+  <div class="page-num">Page 4 of 7</div>
+</div>
+
+<!-- ═══ PAGE 5 — LOAD TEST ═══ -->
+<div class="page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">AP</div>
+      <div><div class="topbar-name">AgentPulse</div><div class="topbar-sub">Load Test Results</div></div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-meta">{{ date_range }}</div>
+      <div class="btn primary">&#8659; PDF Report</div>
+    </div>
+  </div>
+  <div class="section-hdr">
+    <div class="section-eyebrow">Load Test Results · AgentPulse</div>
+    <div class="section-title">Load Test Performance</div>
+  </div>
+  <div class="section-body">
+    <div class="kpi-grid">
+      <div class="kpi-card {{ 'kpi-fail' if stats.worst_p95 is defined and stats.worst_p95 > sla_cfg.get('p95_latency_ms', 15000) else 'kpi-pass' }}">
+        <div class="kpi-label">P95 Latency</div>
+        <div class="kpi-val mono {{ 'fail' if stats.worst_p95 is defined and stats.worst_p95 > sla_cfg.get('p95_latency_ms', 15000) else 'pass' }}" style="font-size:20px;">
+          {% if stats.worst_p95 is defined %}{{ "{:,}".format(stats.worst_p95|int) }} ms{% else %}N/A{% endif %}
+        </div>
+        <div class="kpi-sub">SLA: {{ "{:,}".format(sla_cfg.get('p95_latency_ms', 15000)) }} ms · {{ '&#10007; BREACH' if stats.worst_p95 is defined and stats.worst_p95 > sla_cfg.get('p95_latency_ms', 15000) else '&#10003; PASS' }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Max Concurrent Users</div>
+        <div class="kpi-val mono" style="font-size:20px;">{{ stats.max_users if stats.max_users is defined else '—' }}</div>
+        <div class="kpi-sub">peak tested</div>
+      </div>
+      <div class="kpi-card kpi-pass">
+        <div class="kpi-label">Error Rate</div>
+        <div class="kpi-val pass">0.0%</div>
+        <div class="kpi-sub">SLA: 5.0% · &#10003; PASS</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Best P95</div>
+        <div class="kpi-val mono" style="font-size:20px;">{% if stats.best_p95 is defined %}{{ "{:,}".format(stats.best_p95|int) }} ms{% else %}—{% endif %}</div>
+        <div class="kpi-sub">best run</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-hdr">
+        <div>
+          <div class="chart-card-title">Response Time Percentiles vs Concurrent Users</div>
+          <div class="chart-card-sub">p50 / p95 / p99 · dashed = p95 SLA ({{ "{:,}".format(sla_cfg.get('p95_latency_ms', 15000)) }} ms)</div>
+        </div>
+      </div>
+      <div class="chart-card-body"><div id="loadChart" style="height:180px;"></div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-hdr">
+        <div>
+          <div class="chart-card-title">Signature Demo Metric — Quality Under Load</div>
+          <div class="chart-card-sub">AI quality score vs concurrent users · unlike traditional perf testing, AgentPulse reveals <em>cognitive degradation</em> under load · dashed = Quality SLA ({{ eval_cfg.get('min_quality_score', 0.65) }})</div>
+        </div>
+      </div>
+      <div class="chart-card-body">
+        <div id="qualLoadChart" style="height:160px;"></div>
+        <div class="alert warn" style="margin-top:12px; margin-bottom:0;">
+          <div class="alert-icon">&#8505;</div>
+          <div class="alert-body">Run load tests with N = 5, 10, 20 concurrent users to generate the full quality degradation curve — the headline enterprise AI fitness metric.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Load Test Runs</div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr>
+          <th>Run Name</th><th>User Count</th><th>Avg Response (ms)</th><th>p95 Response (ms)</th><th>Error Rate (%)</th>
+        </tr></thead>
+        <tbody>
+          {% for r in concurrency_table %}
+          <tr>
+            <td class="mono">{{ r.get('run_name', '—') }}</td>
+            <td class="num">{{ r.user_count }}</td>
+            <td class="num">{{ "{:,}".format(r.get('avg_response_ms', 0)|int) if r.get('avg_response_ms') is not none else '—' }}</td>
+            <td class="{{ 'fail-num' if r.get('p95_latency_ms', 0) > sla_cfg.get('p95_latency_ms', 15000) else 'pass-num' }}">{{ "{:,}".format(r.get('p95_latency_ms', 0)|int) if r.get('p95_latency_ms') is not none else '—' }}</td>
+            <td class="{{ 'pass-num' if r.get('error_rate', 0) == 0 else 'fail-num' }}">{{ r.get('error_rate', 0) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="dim" style="text-align:center; padding:20px;">No load test data available</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="page-num">Page 5 of 7</div>
+</div>
+
+<!-- ═══ PAGE 6 — INSIGHTS & RECOMMENDATIONS ═══ -->
+<div class="page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">AP</div>
+      <div><div class="topbar-name">AgentPulse</div><div class="topbar-sub">AI Analysis</div></div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-meta">{{ generated_at }}</div>
+      <div class="btn primary">&#8659; PDF Report</div>
+    </div>
+  </div>
+  <div class="section-hdr">
+    <div class="section-eyebrow">AI Analysis · AgentPulse</div>
+    <div class="section-title">Insights &amp; Recommendations</div>
+    <div class="section-desc">Pattern analysis across all scored runs — LLM-generated explanations + prioritised action items.</div>
+  </div>
+  <div class="section-body">
+    {% set high_recs = recommendations | selectattr('priority', 'equalto', 'HIGH') | list %}
+    {% set med_recs  = recommendations | selectattr('priority', 'equalto', 'MEDIUM') | list %}
+    <div class="kpi-grid" style="margin-bottom:20px;">
+      <div class="kpi-card" style="border-top-color:var(--text-2);">
+        <div class="kpi-label">Runs Analysed</div>
+        <div class="kpi-val" style="font-size:32px;">{{ stats.scored_runs or 0 }}</div>
+        <div class="kpi-sub">with LLM explanations</div>
+      </div>
+      <div class="kpi-card kpi-fail">
+        <div class="kpi-label">High Priority</div>
+        <div class="kpi-val fail" style="font-size:32px;">{{ high_recs|length }}</div>
+        <div class="kpi-sub">immediate action</div>
+      </div>
+      <div class="kpi-card" style="border-top-color:var(--amber);">
+        <div class="kpi-label">Medium Priority</div>
+        <div class="kpi-val" style="font-size:32px; color:var(--amber);">{{ med_recs|length }}</div>
+        <div class="kpi-sub">review recommended</div>
+      </div>
+      <div class="kpi-card kpi-pass">
+        <div class="kpi-label">SLA Passing</div>
+        <div class="kpi-val pass" style="font-size:32px;">{{ sla_ok }}</div>
+        <div class="kpi-sub">metrics in range</div>
+      </div>
+    </div>
+
+    <div style="font-size:13px; font-weight:700; margin-bottom:12px; letter-spacing:-0.01em;">Prioritised Recommendations</div>
+
+    {% for rec in recommendations %}
+    <div class="rec-card {{ 'rec-high' if rec.priority == 'HIGH' else 'rec-medium' }}">
+      <div class="rec-header">
+        <span class="rec-badge {{ 'badge-high' if rec.priority == 'HIGH' else 'badge-medium' }}">{{ rec.priority }}</span>
+        <span class="rec-title">{{ rec.title }}</span>
+        {% if rec.metric_value is defined and rec.sla_value is defined %}
+        <span class="rec-metric">{{ rec.metric }} = {{ rec.metric_value }} <span class="rec-sla">(SLA: {{ rec.sla_value }})</span></span>
+        {% endif %}
+      </div>
+      <div class="rec-finding">{{ rec.finding }}</div>
+      <div class="rec-action-label">Recommended Action</div>
+      <div class="rec-action">{{ rec.action }}</div>
+    </div>
+    {% else %}
+    <div class="alert info"><div class="alert-icon">&#8505;</div><div class="alert-body">No recommendations generated. All metrics are within acceptable thresholds, or run the eval_runner to generate AI recommendations.</div></div>
+    {% endfor %}
+
+    <div style="font-size:13px; font-weight:700; margin-bottom:12px; letter-spacing:-0.01em; margin-top:20px;">Quality by Intent</div>
+
+    <div class="chart-card" style="margin-bottom:16px;">
+      <div class="chart-card-hdr">
+        <div>
+          <div class="chart-card-title">Average Quality Score by Intent</div>
+          <div class="chart-card-sub">Dashed line = Quality SLA ({{ eval_cfg.get('min_quality_score', 0.65) }})</div>
+        </div>
+      </div>
+      <div class="chart-card-body">
+        <div id="intentChart" style="height:200px;"></div>
+      </div>
+    </div>
+
+    <div class="tbl-wrap" style="margin-bottom:0;">
+      <table class="tbl">
+        <thead><tr>
+          <th>Intent</th><th>Runs</th><th>Quality</th><th>RAG</th><th>Helpdesk</th><th>Safety</th>
+        </tr></thead>
+        <tbody>
+          {% for r in intent_scores %}
+          <tr>
+            <td><span class="intent">{{ r.intent }}</span></td>
+            <td class="num">{{ r.n_runs }}</td>
+            <td class="{{ 'pass-num' if r.get('quality', 0) >= eval_cfg.get('min_quality_score', 0.65) else 'fail-num' }}">{{ "%.3f"|format(r.get('quality', 0)) if r.get('quality') is not none else '—' }}</td>
+            <td class="num">{{ "%.3f"|format(r.get('rag', 0)) if r.get('rag') is not none else '—' }}</td>
+            <td class="{{ 'pass-num' if r.get('helpdesk', 0) >= eval_cfg.get('min_helpdesk_score', 0.60) else 'fail-num' }}">{{ "%.3f"|format(r.get('helpdesk', 0)) if r.get('helpdesk') is not none else '—' }}</td>
+            <td class="{{ 'pass-num' if r.get('safety', 0) >= eval_cfg.get('min_safety_score', 0.70) else 'pass-num' }}">{{ "%.3f"|format(r.get('safety', 0)) if r.get('safety') is not none else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="dim" style="text-align:center; padding:20px;">No intent breakdown available</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="page-num">Page 6 of 7</div>
+</div>
+
+<!-- ═══ PAGE 7 — METHODOLOGY ═══ -->
+<div class="page">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">AP</div>
+      <div><div class="topbar-name">AgentPulse</div><div class="topbar-sub">About This Evaluation</div></div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-meta">{{ generated_at }}</div>
+      <div class="btn primary">&#8659; PDF Report</div>
+    </div>
+  </div>
+  <div class="section-hdr">
+    <div class="section-eyebrow">Platform Architecture · AgentPulse</div>
+    <div class="section-title">Methodology &amp; Architecture</div>
+    <div class="section-desc">Eight open-source tools wired together — from user query to scored evaluation result. Every component runs locally with no cloud API keys required.</div>
+  </div>
+  <div class="section-body">
+    <div class="method-grid">
+      <div class="method-card purple">
+        <div class="method-eyebrow">Scoring Method A</div>
+        <div class="method-title">Formula-Based Scoring</div>
+        <div class="method-body">Used for RAG metrics. Mathematical algorithms verify the response against retrieved context. Scores are computed deterministically — no LLM judgment involved.<br><br>Example: <code>Faithfulness = supported claims &divide; total claims</code></div>
+      </div>
+      <div class="method-card teal">
+        <div class="method-eyebrow">Scoring Method B</div>
+        <div class="method-title">GEval — LLM as Judge</div>
+        <div class="method-body">Used for domain and safety metrics. A second LLM reads the response and scores against plain-English criteria. Captures tone, actionability, task resolution.<br><br>Judge: <code>Ollama llama3.2:3b</code> — no cloud key needed.</div>
+      </div>
+    </div>
+
+    <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Metric Taxonomy</div>
+    <div class="tbl-wrap" style="margin-bottom:16px;">
+      <table class="tbl">
+        <thead><tr><th>Category</th><th>Metrics</th><th>Method</th><th>SLA Direction</th></tr></thead>
+        <tbody>
+          <tr><td><span class="cat cat-rr">RAG Retrieval</span></td><td class="dim">Contextual Relevancy, Contextual Precision, Contextual Recall</td><td class="dim">Formula-based</td><td class="dim">Higher = better</td></tr>
+          <tr><td><span class="cat cat-rg">RAG Generation</span></td><td class="dim">Faithfulness, Answer Relevancy</td><td class="dim">Formula-based</td><td class="dim">Higher = better</td></tr>
+          <tr><td><span class="cat cat-hd">Domain GEval</span></td><td class="dim">Completeness, Actionability, Professional Tone, Task Resolution, Escalation Appropriateness</td><td class="dim">GEval (LLM judge)</td><td class="dim">Higher = better</td></tr>
+          <tr><td><span class="cat cat-sf">Safety</span></td><td class="dim">Toxicity, Bias</td><td class="dim">GEval (LLM judge)</td><td class="dim">Lower = better</td></tr>
+          <tr><td><span class="cat cat-cp">Composite KPIs</span></td><td class="dim">RAG Score, Helpdesk Score, Safety Score, Quality Score</td><td class="dim">Weighted mean</td><td class="dim">Higher = better</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Technology Stack — 8 Open-Source Tools</div>
+    <div class="tool-grid">
+      <div class="tool-card purple">
+        <div class="tool-name">LangGraph</div>
+        <div class="tool-version">LangChain Inc. · AGENT ORCHESTRATION</div>
+        <div class="tool-desc">4-node IT Helpdesk agent: Intent &rarr; FAISS RAG &rarr; Ollama LLM &rarr; Escalation. Each node is a separate MLflow span.</div>
+        <div class="tool-chips"><span class="chip">intent</span><span class="chip">escalated</span><span class="chip">node_timings</span></div>
+      </div>
+      <div class="tool-card teal">
+        <div class="tool-name">Ollama + llama3.2:3b</div>
+        <div class="tool-version">Local LLM · NO API KEY</div>
+        <div class="tool-desc">Runs entirely on CPU. Used for agent responses and as LLM-as-a-judge scorer via DeepEval.</div>
+        <div class="tool-chips"><span class="chip">ttft_seconds</span><span class="chip">tokens_per_second</span></div>
+      </div>
+      <div class="tool-card blue">
+        <div class="tool-name">FAISS</div>
+        <div class="tool-version">Meta AI · VECTOR STORE (RAG)</div>
+        <div class="tool-desc">Encodes IT runbooks into embeddings via nomic-embed-text and retrieves semantically relevant chunks.</div>
+        <div class="tool-chips"><span class="chip">contextual_relevancy</span><span class="chip">retrieved_context</span></div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">MLflow 2.22.5</div>
+        <div class="tool-version">Databricks · EXPERIMENT TRACKING</div>
+        <div class="tool-desc">Per-run traces, metric logs, artifact storage. Dashboard reads from MLflow API every 30s.</div>
+        <div class="tool-chips"><span class="chip">all metrics</span><span class="chip">traces</span></div>
+      </div>
+      <div class="tool-card purple">
+        <div class="tool-name">DeepEval 4.0.2</div>
+        <div class="tool-version">Confident AI · QUALITY EVALUATION</div>
+        <div class="tool-desc">8 quality metrics: 3 RAG (formula) + 4 Helpdesk GEval (LLM-as-judge) + 1 Safety.</div>
+        <div class="tool-chips"><span class="chip">faithfulness</span><span class="chip">answer_relevancy</span><span class="chip">+4 more</span></div>
+      </div>
+      <div class="tool-card amber">
+        <div class="tool-name">Locust 2.32.3</div>
+        <div class="tool-version">Locust.io · LOAD TESTING</div>
+        <div class="tool-desc">Simulates N concurrent users hitting FastAPI /invoke. Measures p50/p95/p99 and error rates.</div>
+        <div class="tool-chips"><span class="chip">p50/p95/p99</span><span class="chip">rps_peak</span><span class="chip">user_count</span></div>
+      </div>
+    </div>
+
+    <div class="alert info" style="margin-bottom:0;">
+      <div class="alert-icon">&#8505;</div>
+      <div class="alert-body"><strong>Framework Alignment:</strong> Metric taxonomy and SLA thresholds are aligned with the Accenture P&amp;RE AI Fitness Engineering framework — Stability &amp; Endurance (AgPT) pillar. Industry benchmark references: RAGAS documentation, DeepEval community standards, Stanford HELM, and ToxiGen/HarmBench.</div>
+    </div>
+  </div>
+  <div class="page-num">Page 7 of 7</div>
+  <div class="footer">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand-name">AgentPulse</div>
+        <div class="footer-brand-sub">AI Agent Evaluation Platform</div>
+      </div>
+      <div>
+        <div class="footer-col-hdr">Navigation</div>
+        <div class="footer-links">
+          <span class="footer-link">Overview</span>
+          <span class="footer-link">Architecture</span>
+          <span class="footer-link">Quality Metrics</span>
+          <span class="footer-link">Speed &amp; Cost</span>
+        </div>
+      </div>
+      <div>
+        <div class="footer-col-hdr">Evaluation Methodology</div>
+        <div class="footer-links">
+          <span class="footer-link">Formula-Based (RAG)</span>
+          <span class="footer-link">LLM-as-a-Judge (GEval)</span>
+          <span class="footer-link">SLA Reference</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>AgentPulse · Accenture Technology — Quality Engineering</span>
+      <span>{{ generated_at }}</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Jinja2-injected data constants ──
+const COMPOSITE_RUNS  = {{ composite_runs_json | safe }};
+const COMPOSITE_DATA  = {{ composite_data_json | safe }};
+const METRIC_DATA     = {{ metric_data_json | safe }};
+const TTFT_DATA       = {{ ttft_data_json | safe }};
+const TPS_DATA        = {{ tps_data_json | safe }};
+const TOKEN_DATA      = {{ token_data_json | safe }};
+const COST_DATA       = {{ cost_data_json | safe }};
+const QUAL_LOAD_DATA  = {{ qual_load_data_json | safe }};
+const INTENT_DATA     = {{ intent_data_json | safe }};
+const LOAD_LATENCY_DATA = {{ load_latency_data_json | safe }};
+const LOAD_P95_SLA_MS = {{ load_p95_sla_ms }};
+const QUALITY_SLA     = {{ eval_cfg.get('min_quality_score', 0.65) }};
+
+const PURPLE="#7c3aed", TEAL="#0d9488", GREEN="#059669", RED="#dc2626",
+      BLUE="#2563eb", PINK="#db2777", AMBER="#d97706";
+
+function svgBase(el, W, H, ml, mt, mr, mb) {
+  const svg = d3.select(el).append("svg")
+    .attr("width","100%").attr("height",H)
+    .attr("viewBox",`0 0 ${W} ${H}`).attr("preserveAspectRatio","xMidYMid meet");
+  return { svg, g: svg.append("g").attr("transform",`translate(${ml},${mt})`),
+    iW: W-ml-mr, iH: H-mt-mb };
+}
+
+function axisStyle(g, which) {
+  g.call(which).select(".domain").remove();
+  g.selectAll("line").attr("stroke","#e9ecef");
+  g.selectAll("text").attr("fill","#94a3b8").attr("font-family","JetBrains Mono,monospace").attr("font-size",10);
+}
+
+function noData(el, msg) {
+  d3.select(el).append("div")
+    .style("display","flex").style("align-items","center").style("justify-content","center")
+    .style("height","100%").style("color","#94a3b8").style("font-size","12px")
+    .style("font-family","Plus Jakarta Sans,sans-serif").text(msg || "No data available");
+}
+
+// ── 1. COMPOSITE LINE CHART ──
+(function(){
+  const el=document.getElementById("compositeChart"); if(!el)return;
+  if(!COMPOSITE_RUNS||COMPOSITE_RUNS.length===0){noData(el);return;}
+  const W=860, H=220;
+  const {svg,g,iW,iH}=svgBase(el,W,H,44,14,110,36);
+  const x=d3.scalePoint().domain(COMPOSITE_RUNS).range([0,iW]).padding(0.3);
+  const y=d3.scaleLinear().domain([0,1.1]).range([iH,0]);
+  g.selectAll(".gh").data(y.ticks(5)).enter().append("line")
+    .attr("x1",0).attr("x2",iW).attr("y1",d=>y(d)).attr("y2",d=>y(d)).attr("stroke","#f1f3f5");
+  g.append("line").attr("x1",0).attr("x2",iW).attr("y1",y(QUALITY_SLA)).attr("y2",y(QUALITY_SLA))
+    .attr("stroke",PINK).attr("stroke-dasharray","6,3").attr("stroke-width",1.5);
+  g.append("text").attr("x",iW+6).attr("y",y(QUALITY_SLA)+4).attr("font-size",9)
+    .attr("fill",PINK).attr("font-family","JetBrains Mono,monospace").text("Quality SLA");
+  const series=[
+    {key:"q",color:PURPLE,label:"Quality"},
+    {key:"r",color:TEAL,label:"RAG"},
+    {key:"h",color:BLUE,label:"Helpdesk"},
+    {key:"s",color:GREEN,label:"Safety"},
+  ];
+  const line=d3.line().x((_,i)=>x(COMPOSITE_RUNS[i])).y(d=>y(d)).curve(d3.curveMonotoneX);
+  series.forEach(s=>{
+    const pts=COMPOSITE_DATA.map(d=>d[s.key]!=null?d[s.key]:0);
+    g.append("path").datum(pts).attr("fill","none").attr("stroke",s.color).attr("stroke-width",2.5).attr("d",line);
+    g.selectAll(null).data(pts).enter().append("circle")
+      .attr("cx",(_,i)=>x(COMPOSITE_RUNS[i])).attr("cy",d=>y(d))
+      .attr("r",5).attr("fill",s.color).attr("stroke","#fff").attr("stroke-width",2);
+  });
+  axisStyle(g.append("g").attr("transform",`translate(0,${iH})`), d3.axisBottom(x).tickSize(0));
+  axisStyle(g.append("g"), d3.axisLeft(y).ticks(5).tickSize(-iW).tickFormat(d=>d.toFixed(1)));
+  const leg=svg.append("g").attr("transform",`translate(${W-100},18)`);
+  series.forEach((s,i)=>{
+    leg.append("line").attr("x1",0).attr("x2",14).attr("y1",i*20+7).attr("y2",i*20+7)
+      .attr("stroke",s.color).attr("stroke-width",2.5);
+    leg.append("circle").attr("cx",7).attr("cy",i*20+7).attr("r",4)
+      .attr("fill",s.color).attr("stroke","#fff").attr("stroke-width",1.5);
+    leg.append("text").attr("x",20).attr("y",i*20+11).attr("font-size",10)
+      .attr("fill","#475569").attr("font-family","Plus Jakarta Sans,sans-serif").text(s.label);
+  });
+})();
+
+// ── 2. METRIC BAR CHART ──
+(function(){
+  const el=document.getElementById("metricChart"); if(!el)return;
+  if(!METRIC_DATA||METRIC_DATA.length===0){noData(el);return;}
+  const W=860, H=280;
+  const {svg,g,iW,iH}=svgBase(el,W,H,148,10,110,20);
+  const y=d3.scaleBand().domain(METRIC_DATA.map(d=>d.name)).range([0,iH]).padding(0.3);
+  const x=d3.scaleLinear().domain([0,1]).range([0,iW]);
+  g.selectAll(".bg").data(METRIC_DATA).enter().append("rect")
+    .attr("y",d=>y(d.name)).attr("height",y.bandwidth())
+    .attr("x",0).attr("width",iW).attr("fill","#f8f9fa").attr("rx",3);
+  g.selectAll(".bar").data(METRIC_DATA).enter().append("rect")
+    .attr("y",d=>y(d.name)).attr("height",y.bandwidth())
+    .attr("x",0).attr("width",d=>x(d.v))
+    .attr("fill",d=>d.v>=d.t?GREEN:RED).attr("rx",3);
+  g.selectAll(".thresh").data(METRIC_DATA).enter().append("rect")
+    .attr("x",d=>x(d.t)-1).attr("width",2)
+    .attr("y",d=>y(d.name)-3).attr("height",d=>y.bandwidth()+6)
+    .attr("fill","#0f172a").attr("rx",1);
+  g.selectAll(".val").data(METRIC_DATA).enter().append("text")
+    .attr("x",d=>x(d.v)+6).attr("y",d=>y(d.name)+y.bandwidth()/2+4)
+    .attr("font-size",11).attr("font-family","JetBrains Mono,monospace").attr("font-weight","600")
+    .attr("fill",d=>d.v>=d.t?GREEN:RED).text(d=>d.v.toFixed(3));
+  axisStyle(g.append("g"), d3.axisLeft(y).tickSize(0));
+  const cats=[{c:TEAL,l:"RAG Gen"},{c:BLUE,l:"RAG Ret"},{c:PURPLE,l:"Helpdesk"},{c:AMBER,l:"Safety"}];
+  const leg=svg.append("g").attr("transform",`translate(${W-100},14)`);
+  cats.forEach((c,i)=>{
+    leg.append("rect").attr("x",0).attr("y",i*20).attr("width",10).attr("height",10).attr("fill",c.c).attr("rx",2);
+    leg.append("text").attr("x",15).attr("y",i*20+9).attr("font-size",10)
+      .attr("fill","#475569").attr("font-family","Plus Jakarta Sans,sans-serif").text(c.l);
+  });
+  leg.append("rect").attr("x",0).attr("y",cats.length*20).attr("width",2).attr("height",10).attr("fill","#0f172a");
+  leg.append("text").attr("x",7).attr("y",cats.length*20+9).attr("font-size",10)
+    .attr("fill","#475569").attr("font-family","Plus Jakarta Sans,sans-serif").text("SLA threshold");
+})();
+
+// ── 3. TTFT BARS ──
+(function(){
+  const el=document.getElementById("ttftChart"); if(!el)return;
+  if(!TTFT_DATA||TTFT_DATA.length===0){noData(el);return;}
+  const W=420, H=160;
+  const {svg,g,iW,iH}=svgBase(el,W,H,40,10,20,32);
+  const x=d3.scaleBand().domain(TTFT_DATA.map(d=>d.r)).range([0,iW]).padding(0.35);
+  const maxV=d3.max(TTFT_DATA,d=>d.v)||1;
+  const y=d3.scaleLinear().domain([0,maxV*1.15]).range([iH,0]);
+  g.selectAll(".bar").data(TTFT_DATA).enter().append("rect")
+    .attr("x",d=>x(d.r)).attr("width",x.bandwidth())
+    .attr("y",d=>y(d.v)).attr("height",d=>iH-y(d.v))
+    .attr("fill",PURPLE).attr("rx",3);
+  g.selectAll(".lbl").data(TTFT_DATA).enter().append("text")
+    .attr("x",d=>x(d.r)+x.bandwidth()/2).attr("y",d=>y(d.v)-4)
+    .attr("text-anchor","middle").attr("font-size",10).attr("font-family","JetBrains Mono,monospace")
+    .attr("fill",PURPLE).attr("font-weight","600").text(d=>d.v+"s");
+  axisStyle(g.append("g").attr("transform",`translate(0,${iH})`), d3.axisBottom(x).tickSize(0));
+  axisStyle(g.append("g"), d3.axisLeft(y).ticks(4).tickSize(-iW));
+})();
+
+// ── 4. TOKEN/SEC BARS ──
+(function(){
+  const el=document.getElementById("tpsChart"); if(!el)return;
+  if(!TPS_DATA||TPS_DATA.length===0){noData(el);return;}
+  const W=420, H=160;
+  const {svg,g,iW,iH}=svgBase(el,W,H,36,10,20,32);
+  const x=d3.scaleBand().domain(TPS_DATA.map(d=>d.r)).range([0,iW]).padding(0.35);
+  const maxV=d3.max(TPS_DATA,d=>d.v)||1;
+  const y=d3.scaleLinear().domain([0,maxV*1.2]).range([iH,0]);
+  g.selectAll(".bar").data(TPS_DATA).enter().append("rect")
+    .attr("x",d=>x(d.r)).attr("width",x.bandwidth())
+    .attr("y",d=>y(d.v)).attr("height",d=>iH-y(d.v))
+    .attr("fill",TEAL).attr("rx",3);
+  g.selectAll(".lbl").data(TPS_DATA).enter().append("text")
+    .attr("x",d=>x(d.r)+x.bandwidth()/2).attr("y",d=>y(d.v)-4)
+    .attr("text-anchor","middle").attr("font-size",10).attr("font-family","JetBrains Mono,monospace")
+    .attr("fill",TEAL).attr("font-weight","600").text(d=>d.v);
+  axisStyle(g.append("g").attr("transform",`translate(0,${iH})`), d3.axisBottom(x).tickSize(0));
+  axisStyle(g.append("g"), d3.axisLeft(y).ticks(4).tickSize(-iW));
+})();
+
+// ── 5. TOKEN INPUT/OUTPUT ──
+(function(){
+  const el=document.getElementById("tokenChart"); if(!el)return;
+  if(!TOKEN_DATA||TOKEN_DATA.length===0){noData(el);return;}
+  const W=420, H=160;
+  const {svg,g,iW,iH}=svgBase(el,W,H,44,10,80,32);
+  const x=d3.scaleBand().domain(TOKEN_DATA.map(d=>d.r)).range([0,iW]).padding(0.2);
+  const x1=d3.scaleBand().domain(["inp","out"]).range([0,x.bandwidth()]).padding(0.05);
+  const maxV=d3.max(TOKEN_DATA,d=>Math.max(d.inp||0,d.out||0))||1;
+  const y=d3.scaleLinear().domain([0,maxV*1.15]).range([iH,0]);
+  TOKEN_DATA.forEach(d=>{
+    if(d.inp!=null) g.append("rect").attr("x",x(d.r)+x1("inp")).attr("width",x1.bandwidth())
+      .attr("y",y(d.inp)).attr("height",iH-y(d.inp)).attr("fill",BLUE).attr("rx",2);
+    if(d.out!=null) g.append("rect").attr("x",x(d.r)+x1("out")).attr("width",x1.bandwidth())
+      .attr("y",y(d.out)).attr("height",iH-y(d.out)).attr("fill","#64748b").attr("rx",2);
+  });
+  axisStyle(g.append("g").attr("transform",`translate(0,${iH})`), d3.axisBottom(x).tickSize(0));
+  axisStyle(g.append("g"), d3.axisLeft(y).ticks(4).tickSize(-iW));
+  const leg=svg.append("g").attr("transform",`translate(${W-70},14)`);
+  [[BLUE,"Input"],["#64748b","Output"]].forEach(([c,l],i)=>{
+    leg.append("rect").attr("x",0).attr("y",i*18).attr("width",10).attr("height",10).attr("fill",c).attr("rx",2);
+    leg.append("text").attr("x",14).attr("y",i*18+9).attr("font-size",10).attr("fill","#475569")
+      .attr("font-family","Plus Jakarta Sans,sans-serif").text(l);
+  });
+})();
+
+// ── 6. CLOUD COST BARS ──
+(function(){
+  const el=document.getElementById("costChart"); if(!el)return;
+  if(!COST_DATA||COST_DATA.length===0){noData(el);return;}
+  const W=420, H=160;
+  const {svg,g,iW,iH}=svgBase(el,W,H,58,10,20,32);
+  const x=d3.scaleBand().domain(COST_DATA.map(d=>d.r)).range([0,iW]).padding(0.35);
+  const maxV=d3.max(COST_DATA,d=>d.v)||0.0001;
+  const y=d3.scaleLinear().domain([0,maxV*1.2]).range([iH,0]);
+  g.selectAll(".bar").data(COST_DATA).enter().append("rect")
+    .attr("x",d=>x(d.r)).attr("width",x.bandwidth())
+    .attr("y",d=>y(d.v)).attr("height",d=>iH-y(d.v))
+    .attr("fill",PINK).attr("rx",3);
+  g.selectAll(".lbl").data(COST_DATA).enter().append("text")
+    .attr("x",d=>x(d.r)+x.bandwidth()/2).attr("y",d=>y(d.v)-4)
+    .attr("text-anchor","middle").attr("font-size",9).attr("font-family","JetBrains Mono,monospace")
+    .attr("fill",PINK).text(d=>"$"+d.v.toFixed(6));
+  axisStyle(g.append("g").attr("transform",`translate(0,${iH})`), d3.axisBottom(x).tickSize(0));
+  axisStyle(g.append("g"), d3.axisLeft(y).ticks(4).tickSize(-iW).tickFormat(d=>`$${(d*1000000).toFixed(0)}µ`));
+})();
+
+// ── 7. LOAD LATENCY CHART ──
+(function(){
+  const el=document.getElementById("loadChart"); if(!el)return;
+  if(!LOAD_LATENCY_DATA||LOAD_LATENCY_DATA.length===0){noData(el);return;}
+  const W=860, H=190;
+  const {svg,g,iW,iH}=svgBase(el,W,H,72,14,130,36);
+  const maxU=d3.max(LOAD_LATENCY_DATA,d=>d.u)||5;
+  const maxY=d3.max(LOAD_LATENCY_DATA,d=>Math.max(d.p50||0,d.p95||0,d.p99||0))||LOAD_P95_SLA_MS*2;
+  const x=d3.scaleLinear().domain([0,Math.max(maxU+1,5)]).range([0,iW]);
+  const y=d3.scaleLinear().domain([0,maxY*1.1]).range([iH,0]);
+  g.selectAll(".gh").data(y.ticks(5)).enter().append("line")
+    .attr("x1",0).attr("x2",iW).attr("y1",d=>y(d)).attr("y2",d=>y(d)).attr("stroke","#f1f3f5");
+  g.append("line").attr("x1",0).attr("x2",iW).attr("y1",y(LOAD_P95_SLA_MS)).attr("y2",y(LOAD_P95_SLA_MS))
+    .attr("stroke",PINK).attr("stroke-dasharray","6,3").attr("stroke-width",1.5);
+  g.append("text").attr("x",iW+4).attr("y",y(LOAD_P95_SLA_MS)+4)
+    .attr("font-size",9).attr("fill",PINK).attr("font-family","JetBrains Mono,monospace")
+    .text("p95 SLA ("+Math.round(LOAD_P95_SLA_MS/1000)+"s)");
+  const cols=[{k:"p50",c:"#6EA6D9",l:"p50"},{k:"p95",c:RED,l:"p95"},{k:"p99",c:"#1a3a5c",l:"p99"}];
+  cols.forEach(s=>{
+    const pts=LOAD_LATENCY_DATA.filter(d=>d[s.k]!=null);
+    if(pts.length===0)return;
+    if(pts.length===1){
+      g.append("circle").attr("cx",x(pts[0].u)).attr("cy",y(pts[0][s.k]))
+        .attr("r",7).attr("fill",s.c).attr("stroke","#fff").attr("stroke-width",2);
+    } else {
+      const line=d3.line().x(d=>x(d.u)).y(d=>y(d[s.k])).curve(d3.curveMonotoneX);
+      g.append("path").datum(pts).attr("fill","none").attr("stroke",s.c)
+        .attr("stroke-width",2).attr("d",line);
+      pts.forEach(p=>{
+        g.append("circle").attr("cx",x(p.u)).attr("cy",y(p[s.k]))
+          .attr("r",5).attr("fill",s.c).attr("stroke","#fff").attr("stroke-width",2);
+      });
+    }
+  });
+  axisStyle(g.append("g").attr("transform",`translate(0,${iH})`),
+    d3.axisBottom(x).ticks(5).tickSize(0).tickFormat(d=>`${d} users`));
+  axisStyle(g.append("g"), d3.axisLeft(y).ticks(5).tickSize(-iW).tickFormat(d=>`${d/1000}k`));
+  g.append("text").attr("transform","rotate(-90)").attr("x",-iH/2).attr("y",-56)
+    .attr("text-anchor","middle").attr("font-size",10).attr("fill","#94a3b8")
+    .attr("font-family","Plus Jakarta Sans,sans-serif").text("Latency (ms)");
+})();
+
+// ── 8. QUALITY UNDER LOAD ──
+(function(){
+  const el=document.getElementById("qualLoadChart"); if(!el)return;
+  if(!QUAL_LOAD_DATA||QUAL_LOAD_DATA.length===0){noData(el);return;}
+  const W=860, H=170;
+  const {svg,g,iW,iH}=svgBase(el,W,H,52,14,140,36);
+  const maxU=d3.max(QUAL_LOAD_DATA,d=>d.u)||5;
+  const x=d3.scaleLinear().domain([0,Math.max(maxU+1,5)]).range([0,iW]);
+  const y=d3.scaleLinear().domain([0,1.1]).range([iH,0]);
+  g.selectAll(".gh").data(y.ticks(5)).enter().append("line")
+    .attr("x1",0).attr("x2",iW).attr("y1",d=>y(d)).attr("y2",d=>y(d)).attr("stroke","#f1f3f5");
+  g.append("line").attr("x1",0).attr("x2",iW).attr("y1",y(QUALITY_SLA)).attr("y2",y(QUALITY_SLA))
+    .attr("stroke",PINK).attr("stroke-dasharray","6,3").attr("stroke-width",1.5);
+  g.append("text").attr("x",iW+4).attr("y",y(QUALITY_SLA)+4)
+    .attr("font-size",9).attr("fill",PINK).attr("font-family","JetBrains Mono,monospace")
+    .text("Quality SLA ("+QUALITY_SLA+")");
+  const series2=[{k:"q",c:PURPLE,l:"Quality"},{k:"r",c:TEAL,l:"RAG"},{k:"h",c:BLUE,l:"Helpdesk"},{k:"s",c:GREEN,l:"Safety"}];
+  series2.forEach(s=>{
+    QUAL_LOAD_DATA.forEach(p=>{
+      if(p[s.k]==null)return;
+      g.append("circle").attr("cx",x(p.u)).attr("cy",y(p[s.k]))
+        .attr("r",7).attr("fill",s.c).attr("stroke","#fff").attr("stroke-width",2);
+      g.append("text").attr("x",x(p.u)+10).attr("y",y(p[s.k])+4)
+        .attr("font-size",10).attr("fill",s.c).attr("font-family","JetBrains Mono,monospace")
+        .attr("font-weight","600").text(p[s.k].toFixed(3)+" "+s.l);
+    });
+  });
+  axisStyle(g.append("g").attr("transform",`translate(0,${iH})`),
+    d3.axisBottom(x).ticks(5).tickSize(0).tickFormat(d=>`${d} users`));
+  axisStyle(g.append("g"), d3.axisLeft(y).ticks(5).tickSize(-iW).tickFormat(d=>d.toFixed(1)));
+})();
+
+// ── 9. INTENT QUALITY CHART ──
+(function(){
+  const el=document.getElementById("intentChart"); if(!el)return;
+  if(!INTENT_DATA||INTENT_DATA.length===0){noData(el);return;}
+  const W=860, H=Math.max(180, INTENT_DATA.length*40+40);
+  const {svg,g,iW,iH}=svgBase(el,W,H,82,14,130,28);
+  const y=d3.scaleBand().domain(INTENT_DATA.map(d=>d.intent)).range([0,iH]).padding(0.3);
+  const x=d3.scaleLinear().domain([0,1]).range([0,iW]);
+  g.selectAll(".bg").data(INTENT_DATA).enter().append("rect")
+    .attr("y",d=>y(d.intent)).attr("height",y.bandwidth())
+    .attr("x",0).attr("width",iW).attr("fill","#f8f9fa").attr("rx",3);
+  g.selectAll(".bar").data(INTENT_DATA).enter().append("rect")
+    .attr("y",d=>y(d.intent)).attr("height",y.bandwidth())
+    .attr("x",0).attr("width",d=>x(d.q))
+    .attr("fill",d=>d.q>=QUALITY_SLA?"#a16207":RED).attr("rx",3);
+  g.append("line").attr("x1",x(QUALITY_SLA)).attr("x2",x(QUALITY_SLA))
+    .attr("y1",-6).attr("y2",iH+6)
+    .attr("stroke",PINK).attr("stroke-dasharray","5,3").attr("stroke-width",1.5);
+  g.append("text").attr("x",x(QUALITY_SLA)+5).attr("y",-8)
+    .attr("font-size",9).attr("fill",PINK).attr("font-family","JetBrains Mono,monospace").text("Quality SLA");
+  g.selectAll(".val").data(INTENT_DATA).enter().append("text")
+    .attr("x",d=>x(d.q)+8).attr("y",d=>y(d.intent)+y.bandwidth()/2+4)
+    .attr("font-size",11).attr("font-family","JetBrains Mono,monospace").attr("font-weight","700")
+    .attr("fill",d=>d.q>=QUALITY_SLA?"#a16207":RED).text(d=>d.q.toFixed(3));
+  axisStyle(g.append("g").attr("transform",`translate(0,${iH})`),
+    d3.axisBottom(x).ticks(5).tickSize(0).tickFormat(d=>d.toFixed(1)));
+  axisStyle(g.append("g"), d3.axisLeft(y).tickSize(0));
+})();
+</script>
+</body>
+</html>

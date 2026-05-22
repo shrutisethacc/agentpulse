@@ -1,0 +1,39 @@
+SOFTWARE INSTALLATION RUNBOOK
+==============================
+
+ISSUE: Request to install new software on a corporate device
+STEPS:
+1. Check the Approved Software Catalog first at https://itportal.corp.com/software. All software in the catalog is pre-approved and can be self-installed via the Software Center application on your laptop — no ticket required.
+2. To install from the Software Center: Start Menu > Software Center > Browse Catalog > search by name > click Install. Installation is silent and does not require admin credentials.
+3. If the software is NOT in the catalog, raise an Application Install Request via ServiceNow (category: Software, subcategory: New Application Request). Include: software name, version, vendor, business justification, and the project/client it is needed for.
+4. The request is routed to the Security team for vulnerability assessment (typically 2–5 business days). Enterprise software with a vendor security questionnaire may take up to 10 business days.
+5. After security approval, the software is packaged by the Desktop Engineering team and added to Software Center for self-service deployment. You will be notified by email.
+6. If the software requires a license, the License Management team will provision the license key and include it in the approval notification email.
+
+ISSUE: Software installation fails or hangs
+STEPS:
+1. For Software Center installations that hang: open Task Manager, end any "msiexec.exe" processes, then retry the installation from Software Center.
+2. Check available disk space. Installations require at least 2× the software size as temporary space. Free disk space to at least 10 GB before retrying.
+3. If the error is "Access Denied" or "Administrator privileges required": the package is not properly configured for standard user deployment. Log a ticket with the error screenshot so Desktop Engineering can repackage.
+4. Clear the Software Center cache: navigate to C:\Windows\ccmcache\, delete all subfolders inside (do not delete the ccmcache folder itself), then retry.
+5. For manual installers (.exe or .msi) approved via exception: right-click the installer and select "Run with elevated rights" using the admin account provided during the exception approval.
+
+ISSUE: Software license expired or invalid
+STEPS:
+1. Open the application and note the exact error message or license code displayed.
+2. Submit a License Renewal Request via ServiceNow (category: Software, subcategory: License Renewal) with the error screenshot and the software name.
+3. For Adobe, Microsoft 365, and other enterprise-wide licenses, renewals are handled centrally. Your account will be refreshed within 4 hours of ticket creation during business hours.
+4. Do not attempt to enter personal or trial license keys on corporate devices — this violates the Acceptable Use Policy (AUP) and may trigger a security alert.
+
+ISSUE: Requesting removal/uninstallation of software
+STEPS:
+1. For catalog software: Software Center > Installed Software > select the application > Uninstall.
+2. For software not visible in Software Center, submit an uninstall request via ServiceNow. Manual uninstallation by end users is not permitted for applications that required IT approval to install.
+
+APPROVAL MATRIX:
+- Catalog software: Self-service, no approval needed.
+- Non-catalog software < $500/year license cost: Manager approval sufficient.
+- Non-catalog software > $500/year or enterprise-wide: Manager + IT Director approval required.
+- Open-source software: Security review mandatory regardless of cost.
+
+ESCALATION: Requests not actioned within SLA (new app: 5 business days, license renewal: 1 business day) should be escalated to it-software-escalations@corp.com with the ServiceNow ticket number in the subject line.

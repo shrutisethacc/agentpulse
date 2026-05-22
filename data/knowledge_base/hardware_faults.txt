@@ -1,0 +1,40 @@
+HARDWARE FAULT DIAGNOSIS RUNBOOK
+=================================
+
+ISSUE: Laptop will not boot / black screen on power-on
+STEPS:
+1. Perform a hard reset: Hold the power button for 10 seconds until the machine powers off completely. Wait 30 seconds, then press power again.
+2. Check the power adapter and battery indicator LED. If the LED does not light, try a different power outlet and a different compatible adapter to rule out adapter failure.
+3. Attempt a battery drain reset: Disconnect the power adapter, hold the power button for 30 seconds to discharge residual power, reconnect adapter, then power on.
+4. If you see the manufacturer logo but boot hangs, the OS may have corrupted. Boot from the corporate USB recovery drive (available from IT desk) by pressing F12 at startup to access boot menu.
+5. If the screen remains black but you hear POST beeps, count the beep pattern and report it to the hardware team — beep codes map to specific component failures (RAM, GPU, BIOS).
+6. If the laptop does not respond at all after steps 1–3, the motherboard or power rail may have failed. Log a hardware replacement request in ServiceNow (category: Hardware, subcategory: Laptop Replacement).
+
+ISSUE: External monitor not detected or no display output
+STEPS:
+1. Check that the monitor power cable and video cable (HDMI/DisplayPort/USB-C) are securely connected at both ends.
+2. Press Win+P to open the projection menu and select "Extend" or "Duplicate". Try each option to see if the monitor activates.
+3. Right-click the desktop > Display Settings > "Detect" button. Windows will actively probe for connected displays.
+4. Swap the video cable with a known-good cable. Cables are the most common failure point for display issues.
+5. Test the monitor with a different laptop or desktop to determine if the fault is with the monitor or the laptop's video output port.
+6. Update the display driver: Device Manager > Display Adapters > right-click the adapter > Update driver > Search automatically.
+7. If the laptop's USB-C/Thunderbolt port is used, the port may have failed. Try a different port or a USB-C to HDMI adapter.
+8. Persistent display failures with a known-good cable and monitor indicate a GPU issue. Raise a hardware fault ticket with the serial number of the laptop.
+
+ISSUE: Keyboard keys not working or stuck
+STEPS:
+1. For external keyboards: disconnect and reconnect the USB cable or re-pair the Bluetooth device. Try a different USB port.
+2. Check Device Manager for keyboard errors. If a yellow warning icon appears, uninstall the device and rescan for hardware changes.
+3. For laptop keyboards: restart the laptop. Keyboard firmware resets on boot.
+4. If specific keys are stuck, turn the laptop upside down and gently tap to dislodge debris. Use compressed air to clear under the keycap.
+5. If the keyboard was exposed to liquid, do not attempt to use it — power off immediately, remove power, and submit a hardware fault ticket flagging liquid damage.
+6. Spill-damaged keyboards require depot repair. Turnaround time is 3–5 business days. A loaner keyboard will be provided.
+
+ISSUE: Mouse / trackpad not responding
+STEPS:
+1. For USB mice: reconnect to a different USB port. Try the mouse on another machine to isolate the fault.
+2. For Bluetooth mice: replace batteries, turn the mouse off and on, and re-pair from Bluetooth settings.
+3. For laptop trackpads: some models have a physical disable button (Fn+F9 or similar). Check if the trackpad is accidentally disabled.
+4. Update or reinstall the HID input driver via Device Manager.
+
+ESCALATION: Hardware replacements require manager approval for assets valued above $500. Submit via ServiceNow Hardware Replacement form, attach photos of the fault where applicable, and CC your manager.
