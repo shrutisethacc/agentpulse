@@ -147,7 +147,7 @@ def _concurrency_table(df_summary: pd.DataFrame, df_load: pd.DataFrame) -> list[
 
 def _speed_data(df_evals: pd.DataFrame) -> tuple[dict, list[dict]]:
     """Extract speed KPIs and per-run speed table from evals DataFrame."""
-    speed_cols = ["ttft_seconds", "tokens_per_second", "input_tokens", "output_tokens", "estimated_cost_usd"]
+    speed_cols = ["ttft_seconds", "tokens_per_second", "input_tokens", "output_tokens", "cost_usd"]
     available = [c for c in speed_cols if c in df_evals.columns]
     if not available or df_evals.empty:
         return {}, []
@@ -163,8 +163,8 @@ def _speed_data(df_evals: pd.DataFrame) -> tuple[dict, list[dict]]:
         kpis["avg_tps"] = round(float(df["tokens_per_second"].mean()), 1)
     if "output_tokens" in df.columns:
         kpis["avg_output_tokens"] = round(float(df["output_tokens"].mean()), 0)
-    if "estimated_cost_usd" in df.columns:
-        kpis["total_cost"] = round(float(df["estimated_cost_usd"].sum()), 6)
+    if "cost_usd" in df.columns:
+        kpis["total_cost"] = round(float(df["cost_usd"].sum()), 6)
 
     df_sorted = df.sort_values("start_time") if "start_time" in df.columns else df
     runs = []
@@ -319,8 +319,8 @@ def _build_speed_jsons(speed_runs: list[dict]) -> tuple[str, str, str, str]:
                 "inp": int(r["input_tokens"])  if r.get("input_tokens")  is not None else None,
                 "out": int(r["output_tokens"]) if r.get("output_tokens") is not None else None,
             })
-        if r.get("estimated_cost_usd") is not None:
-            cost.append({"r": label, "v": float(r["estimated_cost_usd"])})
+        if r.get("cost_usd") is not None:
+            cost.append({"r": label, "v": float(r["cost_usd"])})
     return json.dumps(ttft), json.dumps(tps), json.dumps(tok), json.dumps(cost)
 
 

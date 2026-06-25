@@ -5,6 +5,8 @@ Left sidebar navigation · Architecture page · Accenture footer · FrontierIQ t
 
 import datetime
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -474,8 +476,9 @@ def load_config() -> dict:
 @st.cache_data(ttl=30)
 def fetch_runs(experiment_name: str, max_results: int = 200) -> pd.DataFrame:
     cfg = load_config()
-    mlflow.set_tracking_uri(cfg["mlflow"]["tracking_uri"])
-    client = MlflowClient()
+    _uri = cfg["mlflow"]["tracking_uri"]
+    mlflow.set_tracking_uri(_uri)
+    client = MlflowClient(tracking_uri=_uri)
     experiment = mlflow.get_experiment_by_name(experiment_name)
     if experiment is None:
         return pd.DataFrame()
@@ -514,14 +517,15 @@ with st.spinner("Loading data from MLflow…"):
 @st.cache_data(ttl=120)
 def load_eval_reasons() -> list[dict]:
     """Download eval_reasons.json artifacts from all scored runs. Cached 120s."""
-    _client = MlflowClient()
-    mlflow.set_tracking_uri(cfg["mlflow"]["tracking_uri"])
+    _uri = cfg["mlflow"]["tracking_uri"]
+    mlflow.set_tracking_uri(_uri)                 # must precede MlflowClient()
+    _client = MlflowClient(tracking_uri=_uri)
     exp = mlflow.get_experiment_by_name("it-helpdesk-agent-evals")
     if not exp:
         return []
     runs = _client.search_runs(
         experiment_ids=[exp.experiment_id],
-        max_results=100,
+        max_results=200,
         order_by=["start_time DESC"],
     )
     results = []
@@ -542,8 +546,9 @@ def load_eval_reasons() -> list[dict]:
 @st.cache_data(ttl=120)
 def load_eval_recommendations() -> list[dict]:
     """Download eval_recommendations.json from the latest summary run. Cached 120s."""
-    _client = MlflowClient()
-    mlflow.set_tracking_uri(cfg["mlflow"]["tracking_uri"])
+    _uri = cfg["mlflow"]["tracking_uri"]
+    mlflow.set_tracking_uri(_uri)                 # must precede MlflowClient()
+    _client = MlflowClient(tracking_uri=_uri)
     exp = mlflow.get_experiment_by_name("it-helpdesk-eval-summary")
     if not exp:
         return []
@@ -572,13 +577,13 @@ for df, col in [(df_load, "user_count"), (df_summary, "user_count")]:
 NAV_SECTIONS = [
     (None,          [("Overview", ""), ("Architecture", "")]),
     ("PERFORMANCE", [("Quality Metrics", ""), ("Load Test", ""), ("Quality Under Load", "")]),
-    ("ANALYSIS",    [("Run Explorer", ""), ("Speed & Cost", ""), ("Insights", "")]),
+    ("ANALYSIS",    [("DeepEval", ""), ("Speed & Cost", ""), ("Insights", "")]),
     ("REFERENCE",   [("Metric Guide", "")]),
 ]
 
 _ALL_PAGES = [
     "Overview", "Architecture", "Quality Metrics", "Load Test",
-    "Quality Under Load", "Run Explorer", "Speed & Cost", "Insights", "Metric Guide",
+    "Quality Under Load", "DeepEval", "Speed & Cost", "Insights", "Metric Guide",
 ]
 
 if "page" not in st.session_state:
@@ -623,12 +628,14 @@ with st.sidebar:
             )
         for page_name, _ in items:
             is_active = current == page_name
-            cls = "ap-nav-link active" if is_active else "ap-nav-link"
-            encoded = urllib.parse.quote(page_name)
-            st.markdown(
-                f'<a href="?nav={encoded}" class="{cls}" target="_self">{page_name}</a>',
-                unsafe_allow_html=True,
-            )
+            if st.button(
+                page_name,
+                key=f"nav_{page_name}",
+                type="primary" if is_active else "secondary",
+                use_container_width=True,
+            ):
+                st.session_state.page = page_name
+                st.rerun()
 
     st.markdown('<div style="margin:16px 0;border-top:1px solid #F0F0F0;"></div>', unsafe_allow_html=True)
 
@@ -685,7 +692,7 @@ def _tb_label(text: str) -> None:
         unsafe_allow_html=True,
     )
 
-_tb_sp, _tb_time, _tb_refresh, _tb_export = st.columns([2.2, 1.8, 0.9, 0.9])
+_tb_sp, _tb_time, _tb_score, _tb_refresh, _tb_export = st.columns([1.2, 1.8, 1.2, 0.9, 0.9])
 
 with _tb_time:
     _tb_label("Time Range")
@@ -728,6 +735,46 @@ with _tb_time:
                 key="tr_end_time", label_visibility="collapsed",
             )
 
+with _tb_score:
+    _tb_label("Score Runs")
+    with st.popover("▶ Score Runs", use_container_width=True):
+        st.markdown(
+            '<div style="font-size:12px;color:#4A4A4A;margin-bottom:10px;">'
+            'Score all unscored runs with DeepEval using Azure OpenAI as judge. '
+            'Runs after a load test to add quality metrics.</div>',
+            unsafe_allow_html=True,
+        )
+        _score_force = st.checkbox("Force re-score all runs", key="score_force",
+                                   help="Re-scores runs that already have quality metrics")
+        if st.button("Run eval_runner", use_container_width=True, key="tb_score_run", type="primary"):
+            _args = [
+                str(BASE_DIR / ".venv" / "Scripts" / "python.exe"),
+                "-m", "evals.eval_runner",
+            ]
+            if _score_force:
+                _args.append("--force")
+            with st.spinner("Scoring runs… this may take a few minutes."):
+                try:
+                    _result = subprocess.run(
+                        _args,
+                        capture_output=True,
+                        text=True,
+                        cwd=str(BASE_DIR),
+                        env={**os.environ, "PYTHONUTF8": "1"},
+                        timeout=600,
+                    )
+                    if _result.returncode == 0:
+                        st.success("Scoring complete. Dashboard will refresh.")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("eval_runner failed.")
+                        st.code(_result.stderr or _result.stdout, language="text")
+                except subprocess.TimeoutExpired:
+                    st.error("Timed out after 10 minutes. Try scoring fewer runs.")
+                except Exception as _exc:
+                    st.error(f"Error: {_exc}")
+
 with _tb_refresh:
     _tb_label("Refresh")
     with st.popover("↺ Refresh", use_container_width=True):
@@ -750,18 +797,37 @@ with _tb_export:
     with st.popover("PDF Report", use_container_width=True):
         st.markdown("Generate a full PDF report of current runs.")
         if st.button("Generate PDF", use_container_width=True, key="tb_pdf_gen"):
-            with st.spinner("Generating…"):
+            with st.spinner("Generating… (30–60 s)"):
                 try:
-                    from reports.report_generator import generate_report
-                    _recs = load_eval_recommendations()
-                    out_path = generate_report(df_evals, df_load, df_summary, cfg, recommendations=_recs)
-                    st.success(f"Saved: `{out_path.name}`")
-                    with open(out_path, "rb") as fh:
-                        st.download_button(
-                            "⬇ Download PDF", fh.read(),
-                            file_name=out_path.name, mime="application/pdf",
-                            key="tb_pdf_dl",
-                        )
+                    # Run report_generator in a separate process — Playwright's sync API
+                    # cannot launch Chromium inside Streamlit's asyncio event loop.
+                    _rpt_script = str(BASE_DIR / "reports" / "report_generator.py")
+                    _result = subprocess.run(
+                        [sys.executable, _rpt_script],
+                        capture_output=True, text=True,
+                        cwd=str(BASE_DIR),
+                        env={**os.environ, "PYTHONUTF8": "1"},
+                        timeout=120,
+                    )
+                    if _result.returncode == 0:
+                        import re as _re
+                        _m = _re.search(r"Report saved: (.+\.pdf)", _result.stdout)
+                        if _m:
+                            out_path = Path(_m.group(1).strip())
+                            st.success(f"Saved: `{out_path.name}`")
+                            with open(out_path, "rb") as fh:
+                                st.download_button(
+                                    "⬇ Download PDF", fh.read(),
+                                    file_name=out_path.name, mime="application/pdf",
+                                    key="tb_pdf_dl",
+                                )
+                        else:
+                            st.success("Report generated — check reports/output/")
+                    else:
+                        st.error("PDF generation failed.")
+                        st.code(_result.stderr or _result.stdout, language="text")
+                except subprocess.TimeoutExpired:
+                    st.error("Timed out after 2 minutes.")
                 except Exception as exc:
                     st.error(f"Failed: {exc}")
 
@@ -837,7 +903,7 @@ def _sla_banner() -> None:
 def _draw_pipeline_flow() -> go.Figure:
     STAGES = [
         ("Invoke",    "FastAPI :8001",                "ONLINE",  "#F5EBFE", "#C9A5FA"),
-        ("Pipeline",  "LangGraph · Ollama :11434",   "ONLINE",  "#ECFDF5", "#6EE7B7"),
+        ("Pipeline",  "LangGraph · Azure OpenAI",    "ONLINE",  "#ECFDF5", "#6EE7B7"),
         ("Track",     "MLflow :5000 · 17 metrics",   "OFFLINE", "#EEF2FF", "#A5B4FC"),
         ("Score",     "DeepEval · 8 quality scores", "OFFLINE", "#FFFBEB", "#FCD34D"),
         ("Observe",   "Streamlit :8501",              "OFFLINE", "#F7F7F7", "#D1D5DB"),
@@ -919,7 +985,7 @@ if page == "Overview":
         "AI Agent Evaluation · Accenture QE Capability",
         "AgentPulse",
         "Performance &amp; quality scoring under concurrent load &nbsp;·&nbsp; "
-        "Powered by DeepEval + MLflow + Ollama",
+        "Powered by DeepEval + MLflow + Azure OpenAI",
     )
 
     _sla_banner()
@@ -1081,17 +1147,17 @@ elif page == "Architecture":
 
     tools = [
         ("LangGraph", "LangChain Inc.", "Open Source", "os",
-         "Defines the IT helpdesk agent as a 4-node directed graph: Intent → FAISS RAG → Ollama LLM → Escalation. Each node is a separate MLflow span for per-step latency breakdown.",
+         "Defines the IT helpdesk agent as a 4-node directed graph: Intent → FAISS RAG → Azure OpenAI LLM → Escalation. Each node is a separate MLflow span for per-step latency breakdown.",
          "Agent Orchestration",
          ["intent", "escalated", "node_timings"],
          "#A100FF"),
-        ("Ollama + llama3.2:3b", "Ollama Inc.", "Open Source", "os",
-         "Runs the LLM entirely on your CPU — no API key, no cloud cost. Used both for agent responses (streamed) and as the DeepEval judge for quality scoring.",
-         "Local LLM Inference",
+        ("Azure OpenAI gpt-5.2-chat-2", "Microsoft / Accenture", "Enterprise", "cloud",
+         "Cloud LLM via Accenture's Azure subscription. Used for agent responses (streamed), intent classification, and as the DeepEval judge for quality scoring.",
+         "LLM Inference",
          ["ttft_seconds", "tokens_per_second", "input_tokens", "output_tokens"],
          "#00E5C7"),
         ("FAISS", "Meta AI", "Open Source", "os",
-         "Vector similarity search for RAG. Encodes IT runbooks into embeddings (nomic-embed-text via Ollama) and retrieves the most semantically relevant chunks for each query.",
+         "Vector similarity search for RAG. Encodes IT runbooks into embeddings (text-embedding-ada-002 via Azure OpenAI) and retrieves the most semantically relevant chunks for each query.",
          "Vector Store (RAG)",
          ["contextual_relevancy", "retrieved_context"],
          "#006B5A"),
@@ -1138,7 +1204,7 @@ elif page == "Architecture":
         '<tr><td class="td-bold">AgentPulse Dashboard</td><td class="td-code">8501</td><td class="td-muted">http://localhost:8501</td><td class="td-muted">This Streamlit dashboard</td></tr>'
         '<tr><td class="td-bold">Agent API</td><td class="td-code">8001</td><td class="td-muted">http://localhost:8001/docs</td><td class="td-muted">FastAPI Swagger UI + /invoke</td></tr>'
         '<tr><td class="td-bold">MLflow UI</td><td class="td-code">5000</td><td class="td-muted">http://localhost:5000</td><td class="td-muted">Experiment & trace viewer</td></tr>'
-        '<tr><td class="td-bold">Ollama API</td><td class="td-code">11434</td><td class="td-muted">http://localhost:11434</td><td class="td-muted">LLM inference endpoint</td></tr>'
+        '<tr><td class="td-bold">Azure OpenAI</td><td class="td-code">443</td><td class="td-muted">bsab-mg0lb5q7-eastus2.cognitiveservices.azure.com</td><td class="td-muted">LLM inference + embeddings</td></tr>'
         '<tr><td class="td-bold">Locust UI</td><td class="td-code">8089</td><td class="td-muted">http://localhost:8089</td><td class="td-muted">Load test control (on-demand)</td></tr>'
         '</tbody></table>'
     )
@@ -1367,10 +1433,12 @@ elif page == "Quality Under Load":
 # ══════════════════════════════════════════════════════════════════════════════
 # RUN EXPLORER
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "Run Explorer":
+elif page == "DeepEval":
     page_header(
-        "Individual Run Drill-Down",
-        "Run Explorer",
+        "Quality Evaluation · AgentPulse",
+        "DeepEval",
+        "Per-run drill-down into DeepEval scores — composite quality, RAG, helpdesk, and safety, "
+        "plus a radar view of all 8 individual metrics scored by Azure OpenAI as judge.",
     )
 
     if df_evals.empty:
@@ -1605,10 +1673,10 @@ elif page == "Speed & Cost":
         '<div style="background:#F5EBFE;border-radius:12px;padding:14px 18px;margin-top:20px;">'
         '<div style="font-size:12px;font-weight:700;color:#460073;margin-bottom:5px;">About Cost Estimates</div>'
         '<div style="font-size:12px;color:#4A4A4A;line-height:1.7;">'
-        'AgentPulse runs on <strong>Ollama locally — actual cost is $0</strong>. '
-        'The estimated cost is the <em>cloud-equivalent</em> using '
-        '<strong>GPT-4o-mini pricing</strong> ($0.15/1M input tokens, $0.60/1M output tokens). '
-        'This gives clients a concrete reference for budgeting if they deploy on a cloud LLM API.</div></div>',
+        'AgentPulse runs on <strong>Azure OpenAI via Accenture\'s enterprise subscription</strong>. '
+        'The estimated cost uses '
+        '<strong>GPT-4o-mini pricing</strong> ($0.15/1M input tokens, $0.60/1M output tokens) '
+        'as a cloud-equivalent reference for client budgeting conversations.</div></div>',
         unsafe_allow_html=True,
     )
 
@@ -1847,7 +1915,7 @@ elif page == "Metric Guide":
         "Evaluation Framework · Metric Reference",
         "Metric Guide",
         "All scores are 0–1. Higher is better (except Toxicity, which should be near 0). "
-        "Powered by DeepEval + Ollama llama3.2:3b as the judge.",
+        "Powered by DeepEval 4.0.2. AI judge: Azure OpenAI.",
     )
 
     def _metric_card(name, category, colour, sla, simple_what, simple_how, sla_label="≥"):
@@ -2003,7 +2071,7 @@ elif page == "Metric Guide":
             'You write the scoring criteria in plain English; the judge reasons and returns 0–1.<br><br>'
             '<strong>Why GEval?</strong> Some qualities are impossible to measure with a formula: '
             '<em>"Is this tone professional?"</em> or <em>"Could the user actually fix their issue?"</em><br><br>'
-            '<strong>Our judge:</strong> Ollama llama3.2:3b running locally — no cloud key needed.<br>'
+            '<strong>Our judge:</strong> Azure OpenAI gpt-5.2-chat-2 (Accenture enterprise subscription).<br>'
             '<strong>Metrics:</strong> Completeness · Actionability · Professional Tone · Task Resolution · Toxicity'
             '</div></div>',
             unsafe_allow_html=True,
@@ -2020,60 +2088,60 @@ elif page == "Metric Guide":
     with col_left:
         st.markdown(_metric_card(
             "Contextual Relevancy", "RAG · Retrieval", FIQ["rag"], 0.70,
-            "Can the retrieved knowledge base documents actually answer the user's question? "
-            "Even if the agent finds documents, they may be about the wrong topic.",
-            "DeepEval checks each retrieved document chunk against the query. "
-            "Score = fraction of chunks relevant to the question.",
+            "When the agent looks up information to answer a question, does it find the right documents? "
+            "Even if it finds documents, they might be about a different topic.",
+            "Each retrieved document chunk is checked: does it relate to the question? "
+            "Score = number of relevant chunks ÷ total chunks checked.",
         ), unsafe_allow_html=True)
         st.markdown(_metric_card(
             "Faithfulness", "RAG · Generation", FIQ["rag"], 0.70,
-            "Does the agent's response stick to facts from the knowledge base, or does it make things up? "
-            "Low faithfulness = hallucination.",
-            "Extracts every factual claim in the response and checks each against retrieved context. "
-            "Score = fraction of claims supported by context.",
+            "Does the agent only say things that are actually in its knowledge base? "
+            "Low score means the agent is making things up.",
+            "Every fact in the response is checked against the knowledge base documents. "
+            "Score = number of facts backed by real documents ÷ total facts checked.",
         ), unsafe_allow_html=True)
         st.markdown(_metric_card(
             "Answer Relevancy", "RAG · Generation", FIQ["rag"], 0.70,
-            "Does the response actually answer the question asked? "
-            "A response can be factually correct but still not address what the user needed.",
-            "Generates candidate questions from the response and checks how many match the original query. "
-            "Score = fraction of generated questions that align.",
+            "Does the response actually answer what was asked? "
+            "A response can be factually correct but still talk about the wrong thing.",
+            "Questions are generated from the response and compared to the original query. "
+            "Score = how many generated questions match what was originally asked.",
         ), unsafe_allow_html=True)
         st.markdown(_metric_card(
             "Completeness", "Helpdesk · GEval", FIQ["helpdesk"], 0.60,
-            "Does the response cover all the key information from the knowledge base needed to resolve the issue? "
-            "Partial answers that miss critical steps score low.",
-            "GEval (LLM-as-judge): reads response alongside retrieved context and "
-            "scores 1 if all important steps are included, 0 if key steps are missing.",
+            "Did the response include all the important steps to fix the issue? "
+            "Missing key steps = low score.",
+            "An AI judge reads the response and the knowledge base together and checks: "
+            "are all the important steps included? Full marks if nothing is missing; lower if key steps are left out.",
         ), unsafe_allow_html=True)
     with col_right:
         st.markdown(_metric_card(
             "Actionability", "Helpdesk · GEval", FIQ["helpdesk"], 0.60,
-            "Are the steps in the response concrete and specific enough for a user to act on? "
-            "Vague answers like 'contact IT' score low; specific steps score high.",
-            "GEval: evaluates whether the response gives clear, numbered, executable steps. "
-            "Score 1 for specific actions; 0 for vague guidance.",
+            "Can the user actually follow the steps given? "
+            "'Contact IT support' is vague. 'Click Settings > Network > Reset' is actionable.",
+            "An AI judge checks if the steps are clear, numbered, and specific enough to follow. "
+            "Specific step-by-step instructions score high; vague advice scores low.",
         ), unsafe_allow_html=True)
         st.markdown(_metric_card(
             "Professional Tone", "Helpdesk · GEval", FIQ["helpdesk"], 0.60,
-            "Is the language professional, clear, and appropriate for an enterprise IT helpdesk? "
-            "Checks for clarity, respect, and business-appropriate communication.",
-            "GEval: reads only the response text and scores 1 if tone is professional "
-            "and respectful; 0 if rude, confusing, overly casual, or jargon-heavy.",
+            "Is the response polite, clear, and appropriate for a work setting? "
+            "Not too casual, not rude, easy to read.",
+            "An AI judge reads the response and checks: is the language polite and suitable for work? "
+            "Rude, confusing, or overly casual language scores low.",
         ), unsafe_allow_html=True)
         st.markdown(_metric_card(
             "Task Resolution", "Helpdesk · GEval", FIQ["helpdesk"], 0.60,
-            "Could a user fully resolve their IT issue using only this response? "
-            "The ultimate helpdesk success measure — was the ticket closed?",
-            "GEval: simulates being the user and decides: 'Can I fix my issue with this?' "
-            "Score 1 if yes, 0 if the response is incomplete, incorrect, or requires further help.",
+            "After reading the response, could the user fix their problem without needing to ask again? "
+            "This is the most important helpdesk metric.",
+            "An AI judge acts like the user and asks: 'Can I fix my problem using only this answer?' "
+            "Score 1 if yes; lower if the response is incomplete or needs more help.",
         ), unsafe_allow_html=True)
         st.markdown(_metric_card(
             "Toxicity", "Safety", FIQ["sla"], 0.10,
-            "Does the response contain harmful, offensive, discriminatory, or inappropriate content? "
-            "For enterprise demos, this should always be near zero.",
-            "DeepEval extracts opinions from the response and scores each for toxicity. "
-            "Overall toxicity = fraction of toxic opinions. Safety score = 1 − toxicity.",
+            "Does the response say anything harmful, offensive, or inappropriate? "
+            "For enterprise use, this must always be near zero.",
+            "Every statement in the response is checked for harmful content. "
+            "Score = percentage of harmful statements. Safety score = 1 − toxicity.",
             sla_label="≤",
         ), unsafe_allow_html=True)
 
@@ -2142,51 +2210,50 @@ elif page == "Metric Guide":
         st.markdown(_obs_card(
             "TTFT — Time to First Token", "seconds", "#2E5BFF",
             "How long does the user wait before the agent starts responding? "
-            "A fast TTFT makes the agent feel responsive even if the full answer takes longer. "
-            "The most important UX speed metric for AI systems.",
-            "Pipeline streams the LLM response instead of waiting for the full reply. "
-            "TTFT = elapsed time when the first non-empty token chunk arrives. "
-            "Captured in <code>response_generator.py</code> on every invoke.",
+            "A fast TTFT makes the agent feel quick even if the full answer takes longer. "
+            "This is the most important speed metric for AI systems.",
+            "The agent starts streaming the response as soon as the LLM begins generating. "
+            "TTFT = time from sending the request to receiving the first word back. "
+            "Logged automatically on every call.",
         ), unsafe_allow_html=True)
         st.markdown(_obs_card(
             "Input Tokens", "count", "#4A4A4A",
-            "How many tokens did the agent send to the LLM? Includes system prompt, user query, "
-            "and all context retrieved from the knowledge base. Larger input = higher cost.",
-            "Ollama returns <code>prompt_eval_count</code> in the final streaming chunk metadata. "
-            "This is the exact token count the model processed as input.",
+            "How many words (tokens) did the agent send to the LLM? Includes the system instructions, "
+            "the user's question, and the documents retrieved from the knowledge base. More tokens = higher cost.",
+            "Azure OpenAI returns the exact input token count in its API response. "
+            "Logged automatically on every call.",
         ), unsafe_allow_html=True)
         st.markdown(_obs_card(
             "Est. Cost (USD)", "USD", FIQ["sla"],
-            "What would this agent call cost if it ran on a cloud LLM API? "
-            "Ollama is free — this is a reference figure for client budgeting.",
-            "GPT-4o-mini pricing: $0.15/1M input tokens + $0.60/1M output tokens. "
-            "<code>(input × 0.00000015) + (output × 0.0000006)</code>. "
-            "Swap constants in <code>response_generator.py</code> to model any cloud provider.",
+            "How much does each agent call cost on Azure OpenAI? "
+            "Useful for client conversations — e.g. 10,000 queries/day at $0.0002 each = $2/day.",
+            "Calculated from input and output token counts × the Azure OpenAI pricing rate. "
+            "The rate constants can be updated in <code>response_generator.py</code> if the model changes.",
         ), unsafe_allow_html=True)
     with sc_right:
         st.markdown(_obs_card(
             "Tokens per Second", "tokens/s", "#00E5C7",
-            "How fast is the LLM generating its response? Higher = faster output streaming. "
-            "Ollama on CPU: expect 5–15 tok/s for llama3.2:3b. GPU: 80–200+ tok/s.",
-            "Ollama returns <code>eval_duration</code> (nanoseconds) and <code>eval_count</code> "
-            "(output tokens) in the final chunk. Tokens/sec = eval_count ÷ (eval_duration ÷ 1e9).",
+            "How fast is the LLM generating its response? Higher = faster, more responsive output. "
+            "Azure OpenAI typically delivers 30–100 tok/s depending on model and server load.",
+            "Calculated from output token count ÷ generation time. "
+            "Logged automatically on every call.",
         ), unsafe_allow_html=True)
         st.markdown(_obs_card(
             "Output Tokens", "count", "#4A4A4A",
-            "How many tokens did the LLM generate? Prompt is set to 2–3 sentences "
-            "so output should be 20–60 tokens. Higher output = more cost and slower subsequent turns.",
-            "Ollama returns <code>eval_count</code> in the final streaming chunk metadata. "
-            "This is the exact number of tokens generated for the response.",
+            "How many words (tokens) did the LLM write in its response? "
+            "Longer responses = higher cost and slower streaming.",
+            "Azure OpenAI returns the exact output token count in its API response. "
+            "Logged automatically on every call.",
         ), unsafe_allow_html=True)
 
     st.markdown(
         '<div style="background:#F5EBFE;border-radius:12px;padding:16px 20px;margin-top:8px;">'
         '<div style="font-size:12px;font-weight:700;color:#460073;margin-bottom:6px;">'
-        'Why cloud-equivalent cost matters when running free Ollama</div>'
+        'Why cost tracking matters</div>'
         '<div style="font-size:12px;color:#4A4A4A;line-height:1.7;">'
         'When showing a client AgentPulse, the natural question is: <em>"What will this cost us in production?"</em> '
-        'The Est. Cost figure lets you answer concretely — e.g. "Each helpdesk query costs ~$0.00005 on GPT-4o-mini, '
-        'so 10,000 queries/day = ~$0.50/day." It also lets you compare model quality vs. cost side by side.'
+        'The Est. Cost figure lets you answer concretely — e.g. "Each helpdesk query costs ~$0.0002 on Azure OpenAI, '
+        'so 10,000 queries/day = ~$2/day." It also lets you compare model quality vs. cost side by side.'
         '</div></div>',
         unsafe_allow_html=True,
     )
@@ -2198,11 +2265,11 @@ elif page == "Metric Guide":
         '<strong>Quality metrics (8 + 4 composites):</strong><br>'
         '1. Each agent run logs query, response, and retrieved context to MLflow as <code>eval_data.json</code>.<br>'
         '2. Run <code>.venv\\Scripts\\python.exe -m evals.eval_runner</code> to score with DeepEval.<br>'
-        '3. Judge is Ollama llama3.2:3b locally — no cloud API key needed.<br>'
+        '3. Judge is Azure OpenAI gpt-5.2-chat-2 (Accenture subscription).<br>'
         '4. Scores are written back to the same MLflow run as metrics.<br><br>'
         '<strong>Speed &amp; Cost metrics (5):</strong><br>'
         '1. Captured automatically on every <code>/invoke</code> call — no separate scoring step.<br>'
-        '2. TTFT and token counts come from Ollama\'s streaming metadata (last chunk).<br>'
+        '2. TTFT and token counts come from Azure OpenAI streaming metadata (usage_metadata on last chunk).<br>'
         '3. Cost calculated in <code>response_generator.py</code> and logged to MLflow immediately.'
         '</div></div>',
         unsafe_allow_html=True,

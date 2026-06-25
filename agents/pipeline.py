@@ -23,7 +23,7 @@ from agents.knowledge_retriever import retrieve_knowledge
 from agents.response_generator import generate_response
 from agents.escalation_decider import decide_escalation
 
-mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_tracking_uri("http://localhost:5001")
 mlflow.set_experiment("it-helpdesk-agent-evals")
 # mlflow.langchain.autolog() removed — causes 'MlflowSpanProcessor has no attribute _metrics'
 # in MLflow 2.22.5 + LangGraph. Replaced with explicit @mlflow.trace spans below.

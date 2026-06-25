@@ -36,6 +36,7 @@ Usage
 
 import argparse
 import datetime
+import io
 import json
 import os
 import sys
@@ -43,6 +44,12 @@ import tempfile
 import time
 from statistics import mean
 from typing import Optional, Tuple
+
+# cp1252 on Windows can't encode arrows/emoji used in print statements
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+if sys.stderr.encoding and sys.stderr.encoding.lower() != "utf-8":
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 import mlflow
 from mlflow.entities import ViewType
@@ -61,7 +68,7 @@ from evals.golden_answers import GOLDEN_ANSWERS
 from evals.azure_eval_model import AzureJudge
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-MLFLOW_URI = "http://localhost:5000"
+MLFLOW_URI = "http://localhost:5001"
 EXPERIMENT_NAME = "it-helpdesk-agent-evals"
 SUMMARY_EXPERIMENT = "it-helpdesk-eval-summary"
 EVAL_ARTIFACT = "eval_data.json"
@@ -662,13 +669,13 @@ def main():
                         help="Concurrent user count (for summary labelling)")
     parser.add_argument("--cpu-mode", action="store_true",
                         help="Skip contextual_relevancy and faithfulness (both make many "
-                             "concurrent Ollama calls which queue up and timeout on CPU-only "
-                             "Ollama). The other 6 metrics score reliably on CPU.")
+                             "concurrent LLM calls which queue up and timeout). "
+                             "The other 6 metrics score reliably.")
     parser.add_argument("--overnight", action="store_true",
                         help="Run all 8 metrics including faithfulness (hallucination) and "
                              "contextual_relevancy. Disables DeepEval's per-attempt timeout so "
-                             "concurrent Ollama requests can complete without being killed. "
-                             "Implies --force. Estimated ~25-35 min per run on CPU — run unattended.")
+                             "concurrent requests can complete without being killed. "
+                             "Implies --force. Estimated ~25-35 min per run — run unattended.")
     parser.add_argument("--summary-only", action="store_true",
                         help="Skip all scoring — just load existing MLflow scores and regenerate "
                              "the aggregate summary + recommendations artifact. Use after a run "
@@ -692,9 +699,9 @@ def main():
         n_runs = 12  # approximate
         est_hours = round(n_runs * 30 / 60, 1)
         print(f"\n[Overnight mode] All 8 metrics enabled including faithfulness (hallucination scoring).")
-        print(f"  DeepEval per-attempt timeout DISABLED — concurrent Ollama requests will wait.")
+        print(f"  DeepEval per-attempt timeout DISABLED — concurrent Azure OpenAI requests will wait.")
         print(f"  --force is implied: all {n_runs} runs will be re-scored.")
-        print(f"  Estimated runtime: ~{est_hours}h on CPU-only Ollama. Run and walk away.\n")
+        print(f"  Estimated runtime: ~{est_hours}h. Run and walk away.\n")
 
     print("Initialising Azure OpenAI judge (gpt-5.2-chat-2)…")
     judge = AzureJudge()
@@ -704,8 +711,8 @@ def main():
         del metrics["contextual_relevancy"]
         del metrics["faithfulness"]
         print("\n[CPU mode] Skipping contextual_relevancy and faithfulness.")
-        print("  These metrics send multiple concurrent Ollama requests which queue up")
-        print("  and exceed DeepEval's 88.5s per-attempt timeout on CPU-only Ollama.")
+        print("  These metrics send multiple concurrent LLM requests which can queue up")
+        print("  and exceed DeepEval's 88.5s per-attempt timeout.")
         print("  rag_score will be computed from answer_relevancy only.\n")
 
     print(f"\nLoaded {len(metrics)} metrics (→ 12 MLflow values + reasons artifact per run):")
