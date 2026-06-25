@@ -1,0 +1,38 @@
+GENERAL IT SUPPORT — COMMON ISSUES
+
+Accidentally deleted a file — recovery steps
+1. Check the Recycle Bin on your desktop — right-click the file and select Restore.
+2. If the Recycle Bin is empty, check OneDrive version history: right-click the file/folder in OneDrive → Version History → Restore.
+3. For files on a network share, right-click the parent folder → Properties → Previous Versions tab → select a restore point.
+4. If the file was in a SharePoint document library, go to the library → Settings → Recycle Bin → find and restore the file.
+5. Files deleted more than 93 days ago may be permanently removed — contact IT Data Recovery at data-recovery@company.com with the file name, path, and approximate deletion date.
+Restored files will appear in their original location.
+
+Requesting software not available in the Company Portal
+1. Go to the IT Service Portal at https://ithelp.company.com and search for the software under "Software Catalogue."
+2. If not listed, raise a Software Approval Request: IT Portal → New Request → Software Installation → "Request Unlisted Software."
+3. Provide: software name, version, business justification, and your manager's name for approval.
+4. Your manager will receive an approval email — standard processing time is 3–5 business days.
+5. Once approved, the software will appear in Company Portal for self-service installation.
+
+Laptop running slowly — general performance issues
+1. Restart your device — do not just close the lid. A full restart clears memory and applies pending updates.
+2. Check for Windows updates: Settings → Windows Update → Check for updates. Install all pending updates and restart.
+3. Open Task Manager (Ctrl+Shift+Esc) → Processes tab — identify high CPU or memory processes and close unnecessary apps.
+4. Disable startup programs: Task Manager → Startup tab → disable non-essential programs.
+5. Free up disk space: Settings → System → Storage → Cleanup recommendations. Ensure at least 10% free disk space.
+6. If the device is more than 4 years old or has less than 8 GB RAM, raise a Hardware Refresh Request via IT Portal.
+
+Locked out of a corporate application (not Windows login)
+1. Most corporate apps use Single Sign-On (SSO) — if your Windows/domain password works, try logging into the app again.
+2. Clear the application's cached credentials: Control Panel → Credential Manager → Windows Credentials → find and remove the app entry.
+3. Clear browser cookies and cache if the app is web-based, then try again in an InPrivate/Incognito window.
+4. If the application has a "Forgot Password" link, use it — it will send a reset to your corporate email.
+5. For SAP, Salesforce, or other enterprise apps, contact the application-specific support team listed at https://ithelp.company.com/app-support.
+
+Raise a general IT support ticket
+If your issue is not covered above:
+- Portal: https://ithelp.company.com → New Ticket
+- Email: helpdesk@company.com
+- Phone: +1-800-IT-HELP (Mon–Fri 08:00–18:00 local time)
+- Priority issues (system down, security incident): call directly for immediate response.

@@ -1,0 +1,34 @@
+NETWORK CONNECTIVITY TROUBLESHOOTING
+
+Cannot connect to office Wi-Fi network
+1. Ensure Wi-Fi is enabled on your device (check the taskbar or function key).
+2. Select the corporate SSID (e.g., "CorpNet" or "Accenture-Secure") from available networks.
+3. Enter your Windows domain credentials when prompted (username@company.com + domain password).
+4. If authentication fails, verify your password is not expired — reset at https://accounts.company.com.
+5. Forget the network and reconnect if you previously connected with incorrect credentials.
+6. Restart your Wi-Fi adapter: Device Manager → Network Adapters → right-click Wi-Fi adapter → Disable → Enable.
+This will restore your connection to the corporate Wi-Fi network.
+
+Slow or intermittent Wi-Fi connection
+1. Move closer to the nearest access point — check the IT floor map at https://ithelp.company.com/floorplan.
+2. Disconnect from 2.4 GHz band and reconnect to 5 GHz (faster, shorter range) if both are available.
+3. Run the Windows Network Troubleshooter: Settings → System → Troubleshoot → Internet Connections.
+4. Flush DNS cache: open Command Prompt as administrator and run: ipconfig /flushdns
+5. Release and renew IP: run ipconfig /release followed by ipconfig /renew.
+6. Restart your device and reconnect.
+If the issue persists across multiple devices in the same area, escalate to the Network Operations team — it may be an access point fault.
+
+Cannot access internal network resources (shares, intranet, printers) while on Wi-Fi
+1. Confirm you are connected to the corporate Wi-Fi network, not a guest network.
+2. Check that your device is domain-joined: Settings → System → About → look for "Domain" under Device specifications.
+3. Re-authenticate to the domain: Lock (Win+L) and log back in with domain credentials.
+4. Map the network drive manually: File Explorer → This PC → Map Network Drive → enter \\server\share path.
+5. Ensure the Windows Firewall is not blocking corporate traffic — IT policy should manage this automatically.
+
+Ethernet / wired connection not working
+1. Check that the Ethernet cable is securely plugged into both the laptop and the dock or wall port.
+2. Try a different cable or a different wall port on the same switch.
+3. Confirm the network adapter is enabled: Device Manager → Network Adapters → right-click Ethernet adapter → Enable.
+4. Run: ipconfig /all in Command Prompt to confirm an IP address has been assigned (should start with 10. or 172.).
+5. If IP shows as 169.x.x.x (APIPA), the device has not received a DHCP lease — restart the device and reconnect.
+Contact IT Network Operations at network-ops@company.com if no IP is assigned after reconnecting.

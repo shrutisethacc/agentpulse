@@ -6,12 +6,8 @@ azure_openai:
   deployment: "gpt-5.2-chat-2"        # override via AZURE_OPENAI_DEPLOYMENT env var
   api_version: "2024-12-01-preview"   # override via AZURE_OPENAI_API_VERSION env var
 
-ollama:
-  base_url: "http://localhost:11434"
-  embedding_model: "nomic-embed-text"  # embeddings only — agent responses use Azure OpenAI
-
 mlflow:
-  tracking_uri: "http://localhost:5000"
+  tracking_uri: "http://localhost:5001"
   experiment_name: "it-helpdesk-agent-evals"
 
 agent:
@@ -22,8 +18,8 @@ agent:
 
 rag:
   knowledge_base_path: "data/knowledge_base"
-  embedding_model: "nomic-embed-text"
-  top_k: 3
+  embedding_model: "text-embedding-ada-002"
+  top_k: 5
 
 load_test:
   locust_host: "http://localhost:8001"
