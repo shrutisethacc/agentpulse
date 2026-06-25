@@ -60,11 +60,11 @@ if (Test-Port 8001) {
         -RedirectStandardError "$env:TEMP\agent_api_err.log"
     Write-Host "      Waiting for Agent API (LangGraph + FAISS init takes ~60s) ..." -ForegroundColor Yellow
     $waited = 0
-    do { Start-Sleep -Seconds 5; $waited += 5 } until ((Test-Http "http://localhost:8001/health") -or $waited -ge 120)
+    do { Start-Sleep -Seconds 5; $waited += 5 } until ((Test-Http "http://localhost:8001/health") -or $waited -ge 180)
     if (Test-Http "http://localhost:8001/health") {
         Write-Host "      Agent API ready. ($waited s)" -ForegroundColor Green
     } else {
-        Write-Host "      Agent API did not respond in 120s - check: $env:TEMP\agent_api_err.log" -ForegroundColor Red
+        Write-Host "      Agent API did not respond in 180s - check: $env:TEMP\agent_api_err.log" -ForegroundColor Red
     }
 }
 

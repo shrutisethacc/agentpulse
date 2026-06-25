@@ -2,150 +2,184 @@
 
 > Built by **Shruti Seth** · Manager, Performance Engineering · Accenture Technology QE Capability
 
-An enterprise-grade, locally runnable platform that **performance tests and evaluates AI agents** — measuring quality, speed, cost, and safety under concurrent load.
+An enterprise-grade platform that **performance tests and evaluates AI agents** — measuring quality, speed, cost, and safety under concurrent load.
 
-**This is NOT a chatbot.** It is a framework for organisations adopting AI agents who need to answer: *"Is our agent good enough for production? Will quality hold under load?"*
+**This is not a chatbot.** It is a framework for organisations adopting AI agents who need to answer: *"Is our agent good enough for production? Will quality hold under load?"*
 
 ---
 
-## What It Does
+## Quick Start (First-Time Setup)
 
+```powershell
+# 1. Clone the repo
+git clone https://github.com/<org>/ai-evals-framework.git
+cd ai-evals-framework
+
+# 2. Run the one-time setup script (creates venv, installs deps, installs Playwright)
+.\setup.ps1
+
+# 3. Copy .env.example → .env and fill in your Azure OpenAI credentials
+Copy-Item .env.example .env
+notepad .env
+
+# 4. Start all services
+.\start.ps1
 ```
-User Query
+
+Open <http://localhost:8501> for the live dashboard, <http://localhost:5001> for MLflow traces.
+
+> **Every session after first-time setup:** just run `.\start.ps1` — it checks which services are already running and starts only what's missing.
+
+---
+
+## How It Works
+
+```text
+User Query  (e.g. "My VPN keeps disconnecting")
     ↓
-[1. Intent Classifier]      → classifies: VPN / PASSWORD / HARDWARE / SOFTWARE / OTHER
+[1. Intent Classifier]      classifies: VPN / PASSWORD / HARDWARE / SOFTWARE / OTHER
     ↓
-[2. Knowledge Retriever]    → semantic RAG over IT runbooks (FAISS + Ollama embeddings)
+[2. Knowledge Retriever]    BM25 keyword RAG over IT runbooks (in-memory, no embeddings required)
     ↓
-[3. Response Generator]     → Azure OpenAI gpt-5.2-chat-2 generates resolution
+[3. Response Generator]     Azure OpenAI gpt-5.2-chat-2 generates resolution (2–3 sentences)
     ↓
-[4. Escalation Decider]     → L1 resolved? or route to L2/L3?
+[4. Escalation Decider]     L1 resolved? or route to L2/L3 with context summary
     ↓
 MLflow trace + 17 metrics logged per run
 ```
 
-Every run is scored by **DeepEval** (8 quality metrics) and tracked in **MLflow** — then shown live in a **Streamlit dashboard** with 6 tabs covering quality, load, cost, and safety.
+---
+
+## Execution Pipeline — Automated vs Manual
+
+Understanding what runs automatically and what you trigger manually is essential.
+
+| Step | Triggered by | Automatic? |
+| --- | --- | --- |
+| Agent runs (classify → retrieve → generate → escalate) | Locust or direct API call | **Auto** — happens on every `/invoke` |
+| MLflow trace logged (per-node spans, latency) | Agent pipeline | **Auto** — instrumented in `pipeline.py` |
+| Speed & cost metrics logged (TTFT, tokens, cost) | Agent pipeline | **Auto** — logged in `response_generator.py` |
+| BM25 index built from knowledge base | First agent run after startup | **Auto** — rebuilds in-memory if missing |
+| DeepEval quality scoring (8 metrics + composites) | You run `eval_runner.py` | **Manual** — run after load test completes |
+| Dashboard refresh | Streamlit auto-polls MLflow | **Auto** — refreshes every 30s |
+| PDF report generation | You run `report_generator.py` | **Manual** — on demand |
+
+**Typical session flow:**
+
+```text
+1. start.ps1              → all 4 services up
+2. Locust load test       → N agent runs → MLflow auto-logs speed/cost metrics
+3. eval_runner.py         → scores all unscored runs → MLflow auto-logs quality metrics
+4. Dashboard              → shows full picture: load + quality + cost
+5. report_generator.py    → exports PDF (optional)
+```
+
+> DeepEval scoring is intentionally a separate step — running it inline during load tests would add 5–15s judge latency per request and distort throughput measurements.
 
 ---
 
 ## Tech Stack
 
-| Component | Tool | Version |
-|-----------|------|---------|
-| LLM (agent responses) | Azure OpenAI `gpt-5.2-chat-2` | Accenture subscription |
-| LLM (eval judge) | Azure OpenAI `gpt-5.2-chat-2` via `AzureJudge` | DeepEval custom wrapper |
-| Embeddings (RAG) | Ollama `nomic-embed-text` | Port 11434 |
-| Agent framework | LangGraph | 0.2.60 |
-| Experiment tracking | MLflow | 2.22.5 |
-| Quality evaluation | DeepEval | 4.0.2 |
-| Load testing | Locust | 2.32.3 |
-| Live dashboard | Streamlit | 1.41.1 |
-| Vector store (RAG) | FAISS | 1.9.0 |
-| API server | FastAPI + Uvicorn | 0.115.6 |
-| PDF export | Playwright (chromium) | 1.44+ |
-| Package manager | uv | latest |
+| Component | Tool | Notes |
+| --- | --- | --- |
+| Agent framework | LangGraph 0.2.60 | 4-node stateful pipeline |
+| LLM — responses | Azure OpenAI `gpt-5.2-chat-2` | ~5–23s TTFT |
+| LLM — eval judge | Azure OpenAI via `AzureJudge` | Custom DeepEval wrapper |
+| Embeddings — RAG | Not used — BM25 replaces embedding-based retrieval | Azure embedding deployment unavailable; BM25 has no cost |
+| Experiment tracking | MLflow 3.14.0 | Tracing + experiments + artifact store |
+| Quality evaluation | DeepEval 4.0.2 | 8 metrics + 4 composites |
+| Load testing | Locust 2.32.3 | Concurrent user simulation |
+| Live dashboard | Streamlit 1.41.1 | 8-tab interface |
+| RAG retrieval | BM25Okapi (rank-bm25) | In-memory keyword search — no embedding cost |
+| API server | FastAPI + Uvicorn | Port 8001 |
+| PDF export | Playwright + Jinja2 | Real browser render — supports D3.js |
+| Package manager | uv | Faster and safer than pip |
 
 ---
 
 ## Prerequisites
 
-Install these before running anything:
+Install these manually before running `setup.ps1`:
 
-1. **Python 3.12** — [python.org](https://www.python.org/downloads/)
-2. **Ollama** — [ollama.com](https://ollama.com) — used only for FAISS embeddings:
-   ```powershell
-   ollama pull nomic-embed-text   # Embeddings for FAISS RAG (agent responses use Azure OpenAI)
-   ```
-3. **Azure OpenAI credentials** — create `.env` in `ai-evals-framework/` with:
-
-   ```env
-   AZURE_OPENAI_ENDPOINT=https://<your-endpoint>.cognitiveservices.azure.com/
-   AZURE_OPENAI_API_KEY=<your-key>
-   AZURE_OPENAI_DEPLOYMENT=<deployment-name>
-   AZURE_OPENAI_API_VERSION=2024-12-01-preview
-   ```
-4. **uv** (fast Python package manager):
-   ```powershell
-   pip install uv
-   ```
+| Prerequisite | Where to get it | Notes |
+| --- | --- | --- |
+| Python 3.12 | [python.org](https://www.python.org/downloads/) | Check "Add to PATH" during install |
+| Azure OpenAI credentials | From your Azure Portal or admin | See `.env.example` for required fields |
 
 ---
 
-## Setup (Windows)
+## Environment Variables
 
-```powershell
-# 1. Clone the repo
-git clone https://github.com/<your-username>/agentpulse.git
-cd agentpulse\AIEvals\ai-evals-framework
+Copy `.env.example` to `.env` and fill in your credentials. The file is excluded from git — never commit it.
 
-# 2. Add uv to PATH (if not already)
-$env:Path = "C:\Users\$env:USERNAME\.local\bin;$env:Path"
-
-# 3. Create virtual environment using Python 3.12
-uv venv --python C:\Python312\python.exe
-
-# 4. Install all dependencies
-uv pip install -r requirements.txt --python .venv\Scripts\python.exe
+```env
+AZURE_OPENAI_ENDPOINT=https://<your-resource>.cognitiveservices.azure.com/
+AZURE_OPENAI_API_KEY=<your-api-key>
+AZURE_OPENAI_DEPLOYMENT=<deployment-name>
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ```
 
-> **Important:** Always use `.venv\Scripts\python.exe` directly — not `uv run python`, which resolves to system Python and has the wrong DeepEval version.
-
----
-
-## Services Overview
-
-AgentPulse requires **4 services running simultaneously**:
-
-| Service | Port | Purpose |
-|---------|------|---------|
-| Ollama | 11434 | Embeddings only — nomic-embed-text for FAISS RAG |
-| Azure OpenAI | cloud | Agent LLM responses + DeepEval judge (gpt-5.2-chat-2) |
-| MLflow UI | 5000 | Experiment tracking, traces, artifact store |
-| Agent API | 8001 | FastAPI `/invoke` endpoint — the agent pipeline |
-| Streamlit Dashboard | 8501 | Live metrics dashboard |
-
----
-
-## Running AgentPulse
-
-### Step 1 — Start Ollama
-
-Ollama must be running before the agent API or eval scoring can work.
+### Updating credentials
 
 ```powershell
-# Windows: Ollama installs to AppData — start it manually
-$ollamaExe = "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
-Start-Process $ollamaExe -ArgumentList "serve" -WindowStyle Hidden
-Start-Sleep 10
+# Open .env in Notepad and edit values, then save
+notepad .env
 
-# Verify Ollama is up
-Invoke-WebRequest http://localhost:11434/api/tags -UseBasicParsing | Select-Object StatusCode
-```
-
-### Step 2 — Start MLflow, Agent API, and Streamlit
-
-```powershell
-$base = "path\to\ai-evals-framework"
-$env:Path = "C:\Users\$env:USERNAME\.local\bin;$env:Path"
+# After saving, restart the Agent API so it picks up the new credentials
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 $env:PYTHONUTF8 = "1"
-& "$base\start.ps1"
+.\start.ps1
 ```
 
-`start.ps1` checks each service and only starts those that are not already running.
+> The Agent API reads `.env` at startup only — a restart is required after any credential change.
 
-### Step 3 — Verify all services are up
+---
+
+## Managing Services
+
+AgentPulse requires these 4 local services running simultaneously (LLM calls go to Azure OpenAI cloud):
+
+| Service | URL | Purpose |
+| --- | --- | --- |
+| MLflow UI | <http://localhost:5001> | Experiment tracking, traces, artifact store |
+| Agent API | <http://127.0.0.1:8001> | FastAPI `/invoke` endpoint (use 127.0.0.1 not localhost) |
+| Streamlit Dashboard | <http://localhost:8501> | Live metrics dashboard |
+| Locust UI | <http://localhost:8089> | Load test control — set users + spawn rate in browser |
+
+### Start services
 
 ```powershell
-# Should return 200 / OK for each
-Invoke-WebRequest http://localhost:11434/api/tags  -UseBasicParsing | Select-Object StatusCode  # Ollama
-Invoke-WebRequest http://127.0.0.1:5000            -UseBasicParsing | Select-Object StatusCode  # MLflow
-Invoke-WebRequest http://127.0.0.1:8001/health     -UseBasicParsing | Select-Object StatusCode  # Agent API
-Invoke-WebRequest http://localhost:8501            -UseBasicParsing | Select-Object StatusCode  # Streamlit
+$env:PYTHONUTF8 = "1"
+.\start.ps1
 ```
 
-> **Windows note:** Use `http://127.0.0.1` (not `http://localhost`) for the Agent API and MLflow — on some Windows machines `localhost` resolves to IPv6 (`::1`) and the connection is refused.
+`start.ps1` starts MLflow, Agent API, Streamlit, and Locust in the correct order. Run it every session — it skips any service already running.
 
-### Send a test query
+### Stop services
+
+```powershell
+# Stop all AgentPulse processes
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process streamlit -ErrorAction SilentlyContinue | Stop-Process -Force
+```
+
+### Check service status
+
+```powershell
+# Agent API (use 127.0.0.1 — localhost may resolve to IPv6 on Windows)
+Invoke-WebRequest http://127.0.0.1:8001/health -UseBasicParsing | Select-Object StatusCode
+
+# MLflow
+Invoke-WebRequest http://127.0.0.1:5001 -UseBasicParsing | Select-Object StatusCode
+
+# Streamlit — check in browser at http://localhost:8501
+```
+
+A `StatusCode: 200` means the service is up. If any service is down, re-run `.\start.ps1`.
+
+---
+
+## Sending a Query
 
 ```powershell
 $body = '{"query":"My VPN keeps disconnecting every 30 minutes"}'
@@ -154,198 +188,67 @@ Invoke-WebRequest -Uri "http://127.0.0.1:8001/invoke" `
   -Body $body -UseBasicParsing | Select-Object -ExpandProperty Content
 ```
 
-### Manual service start (if start.ps1 is unavailable)
+> **Windows note:** Use `http://127.0.0.1` (not `http://localhost`) for the Agent API and MLflow — on some Windows machines `localhost` resolves to IPv6 and the connection is refused.
+
+To run all 12 demo queries in sequence:
 
 ```powershell
-$base = "path\to\ai-evals-framework"
 $env:PYTHONUTF8 = "1"
-
-# 1. MLflow
-Start-Process "$base\.venv\Scripts\mlflow.exe" `
-    -ArgumentList "ui","--host","127.0.0.1","--port","5000","--backend-store-uri","mlruns" `
-    -WorkingDirectory $base -WindowStyle Hidden
-
-# 2. Agent API
-Start-Process "$base\.venv\Scripts\python.exe" `
-    -ArgumentList "-m","uvicorn","agents.pipeline:app","--host","127.0.0.1","--port","8001" `
-    -WorkingDirectory $base -WindowStyle Hidden
-
-# 3. Streamlit dashboard
-Start-Process "$base\.venv\Scripts\python.exe" `
-    -ArgumentList "-m","streamlit","run","dashboard/app.py","--server.port","8501","--server.headless","true" `
-    -WorkingDirectory $base -WindowStyle Hidden
+.\.venv\Scripts\python.exe scripts\batch_queries.py
 ```
-
-> **Critical:** Always use `.venv\Scripts\python.exe` — not `uv run python`. On this machine `uv run python` resolves to system Python which has the wrong DeepEval version (1.4.6 vs 4.0.2 required).
 
 ---
 
 ## Running the Eval Suite
 
-After collecting agent runs, score them with DeepEval:
+**This is a manual step.** Run it after your load test or batch queries are complete. It scores every unscored MLflow run using Azure OpenAI as the DeepEval judge and writes the quality metrics back to MLflow.
 
 ```powershell
-$base = "path\to\ai-evals-framework"
-$env:GIT_PYTHON_REFRESH = "quiet"
 $env:PYTHONUTF8 = "1"
-Set-Location $base
 
-# Score all unscored runs
-& "$base\.venv\Scripts\python.exe" -m evals.eval_runner
+# Score all unscored runs (most common — run this after every load test)
+.\.venv\Scripts\python.exe -m evals.eval_runner
 
-# Force re-score all runs
-& "$base\.venv\Scripts\python.exe" -m evals.eval_runner --force
+# Force re-score all runs (use after changing judge model or eval config)
+.\.venv\Scripts\python.exe -m evals.eval_runner --force
+
+# Regenerate summary stats only — no re-scoring
+.\.venv\Scripts\python.exe -m evals.eval_runner --summary-only
 ```
 
-> Eval scoring uses Azure OpenAI (gpt-5.2-chat-2) as the LLM judge — ensure your `.env` is present with valid credentials. Ollama must still be running for FAISS embeddings.
+> **Always use `.venv\Scripts\python.exe` directly.** `uv run python` resolves to system Python which has the wrong DeepEval version.
+
+Quality scores appear in the dashboard automatically once eval_runner completes — no dashboard restart needed.
 
 ---
 
 ## Running a Load Test
 
-> **Note:** Locust is installed in the venv — use the full path, not the system `locust` command.
-
 ```powershell
-$base = "path\to\ai-evals-framework"
-Set-Location $base
-
-# Headless load test — 4 users, 3 min (recommended for CPU-only Ollama)
-& "$base\.venv\Scripts\locust.exe" -f load_tests\locustfile.py `
+# 10 concurrent users, 3 minutes, headless
+.\.venv\Scripts\locust.exe -f load_tests\locustfile.py `
     --host http://127.0.0.1:8001 `
-    --users 4 --spawn-rate 1 --run-time 180s --headless
+    --users 10 --spawn-rate 2 --run-time 180s --headless
 
-# After the test, score runs:
-& "$base\.venv\Scripts\python.exe" -m evals.eval_runner
+# Then score the new runs
+$env:PYTHONUTF8 = "1"
+.\.venv\Scripts\python.exe -m evals.eval_runner
 ```
 
-> With Azure OpenAI (~5–23s per query), up to 10 concurrent users is practical. Run Locust headless with `--users 10 --spawn-rate 2 --run-time 180s`.
-
----
-
-## Fresh Start (reset all data)
-
-To delete all MLflow runs and start clean:
+Or open the Locust UI at <http://localhost:8089> for interactive control:
 
 ```powershell
-$base = "path\to\ai-evals-framework"
-
-# 1. Stop MLflow
-Get-Process python -ErrorAction SilentlyContinue | Where-Object {
-    (Get-WmiObject Win32_Process -Filter "ProcessId=$($_.Id)").CommandLine -like "*mlflow*"
-} | Stop-Process -Force
-
-# 2. Delete run data
-Remove-Item "$base\mlruns" -Recurse -Force
-
-# 3. Restart all services
-& "$base\start.ps1"
+.\.venv\Scripts\locust.exe -f load_tests\locustfile.py --host http://127.0.0.1:8001
 ```
 
 ---
 
-## MLflow Data Reference
-
-### Experiments
-
-Three MLflow experiments are created automatically:
-
-| Experiment Name | ID (current) | What it holds |
-| --------------- | ------------ | ------------- |
-| `it-helpdesk-agent-evals` | `758149922029836096` | One run per agent invocation — all agent + eval metrics |
-| `it-helpdesk-load-test` | auto-assigned | One run per Locust test — p50/p95/p99 latency, error rate, RPS |
-| `it-helpdesk-eval-summary` | auto-assigned | One run per `eval_runner` execution — aggregate stats + recommendations artifact |
-
-> The experiment ID for `it-helpdesk-agent-evals` is fixed at `758149922029836096` for this install. If you delete `mlruns/` and restart, MLflow assigns a new ID.
-
-### mlruns Folder Structure
-
-All MLflow data lives on disk at:
-
-```
-ai-evals-framework/
-└── mlruns/
-    └── 758149922029836096/          ← experiment ID (it-helpdesk-agent-evals)
-        └── <32-char run_id>/        ← one folder per agent invocation
-            ├── meta.yaml            ← run status, timestamps, lifecycle_stage
-            ├── tags/
-            │   └── mlflow.runName   ← human name, e.g. "helpdesk-3a81b5c8"
-            ├── params/
-            │   ├── intent           ← VPN / PASSWORD / HARDWARE / SOFTWARE / NETWORK
-            │   ├── query            ← original user query text
-            │   ├── escalation_reason
-            │   └── trace_id
-            ├── metrics/             ← one file per metric; file content = "timestamp value step"
-            │   │
-            │   │  ── Logged by agents/pipeline.py (at invoke time) ──
-            │   ├── ttft_seconds
-            │   ├── input_tokens
-            │   ├── output_tokens
-            │   ├── tokens_per_second
-            │   ├── cost_usd
-            │   ├── latency_total_pipeline
-            │   ├── latency_intent_classifier
-            │   ├── latency_knowledge_retriever
-            │   ├── latency_response_generator
-            │   ├── latency_escalation_decider
-            │   ├── confidence
-            │   └── escalated
-            │   │
-            │   │  ── Logged by evals/eval_runner.py (after scoring) ──
-            │   ├── quality_score    ← headline KPI
-            │   ├── rag_score
-            │   ├── helpdesk_score
-            │   ├── safety_score
-            │   ├── faithfulness
-            │   ├── answer_relevancy
-            │   ├── contextual_relevancy
-            │   ├── completeness
-            │   ├── actionability
-            │   ├── professional_tone
-            │   ├── task_resolution
-            │   └── toxicity
-            └── artifacts/
-                ├── eval_data.json       ← full query / response / retrieved context
-                └── eval_reasons.json    ← LLM-generated explanations per metric (added by eval_runner)
-```
-
-### What gets logged when
-
-| Step | Triggered by | Metrics written |
-| ---- | ------------ | --------------- |
-| Agent invoked (`/invoke`) | `agents/pipeline.py` | `ttft_seconds`, `cost_usd`, `input_tokens`, `output_tokens`, `tokens_per_second`, all `latency_*`, `confidence`, `escalated` |
-| Eval scoring | `evals/eval_runner.py` | All 8 DeepEval metrics + 4 composites (`quality_score`, `rag_score`, etc.) + `eval_reasons.json` artifact |
-| Eval complete | `eval_runner.py` `log_summary()` | One run in `it-helpdesk-eval-summary` with aggregate stats + `eval_recommendations.json` artifact |
-
-### Reading a metric file directly
-
-Each metric file contains one line per logged value: `<unix_timestamp_ms> <value> <step>`.
+## Generating a PDF Report
 
 ```powershell
-# Read quality_score for a specific run
-$base = "path\to\ai-evals-framework"
-$runId = "317322d5fd7b4c2b97e397a92ec91159"  # replace with actual run ID
-Get-Content "$base\mlruns\758149922029836096\$runId\metrics\quality_score"
-# → 1747809234567 0.712 0
-```
-
-### Find a run ID by name
-
-```powershell
-$base = "path\to\ai-evals-framework"
-$expPath = "$base\mlruns\758149922029836096"
-Get-ChildItem $expPath -Directory | ForEach-Object {
-    $name = Get-Content "$($_.FullName)\tags\mlflow.runName" -ErrorAction SilentlyContinue
-    if ($name) { Write-Host "$name  →  $($_.Name)" }
-}
-```
-
-### Check if a run has been scored
-
-A run is scored (by `eval_runner`) if its `metrics/` folder contains a `quality_score` file:
-
-```powershell
-$runPath = "$base\mlruns\758149922029836096\<run_id>"
-Test-Path "$runPath\metrics\quality_score"   # True = scored, False = not yet scored
+$env:PYTHONUTF8 = "1"
+.\.venv\Scripts\python.exe -m reports.report_generator
+# Output saved to reports/output/agentpulse_report_<timestamp>.pdf
 ```
 
 ---
@@ -353,107 +256,146 @@ Test-Path "$runPath\metrics\quality_score"   # True = scored, False = not yet sc
 ## Dashboard Tabs
 
 | Tab | What it shows |
-|-----|---------------|
-| Quality Metrics | KPI cards, quality over time, per-metric bars, run table |
-| Load Test | P50/P95/P99 latency vs users, error rate, SLA indicators |
-| Quality Under Load | Signature chart: quality score vs concurrent users |
-| Run Explorer | Per-run drill-down with radar chart |
-| Metric Guide | Plain-English definitions of all 8 metrics + 4 composites |
-| Speed & Cost | TTFT, tokens/sec, input/output tokens, cloud-equivalent cost |
+| --- | --- |
+| Home | Platform overview, current run count, quick health check |
+| Quality Metrics | KPI cards, quality trend over time, per-metric bar chart, SLA pass/fail table |
+| Load Test | P50/P95/P99 latency vs concurrent users, error rate, SLA indicators |
+| Quality Under Load | Signature chart: quality score vs concurrent user count |
+| Run Explorer | Per-run drill-down with radar chart — compare any two runs |
+| Speed & Cost | TTFT per run, tokens/sec, input/output tokens, cloud-equivalent cost |
+| Metric Guide | Plain-English definitions of all 8 metrics + 4 composites + SLA thresholds |
+| Insights | Prioritised recommendations generated from pattern analysis across all runs |
 
 ---
 
 ## Evaluation Metrics
 
-| Category | Metric | SLA |
-|----------|--------|-----|
-| RAG Retrieval | `contextual_relevancy` | ≥ 0.70 |
-| RAG Generation | `faithfulness` | ≥ 0.70 |
-| RAG Generation | `answer_relevancy` | ≥ 0.70 |
-| Helpdesk (GEval) | `completeness` | ≥ 0.60 |
-| Helpdesk (GEval) | `actionability` | ≥ 0.60 |
-| Helpdesk (GEval) | `professional_tone` | ≥ 0.60 |
-| Helpdesk (GEval) | `task_resolution` | ≥ 0.60 |
-| Safety | `toxicity` | ≤ 0.10 |
-| **Composite** | `rag_score` | ≥ 0.70 |
-| **Composite** | `helpdesk_score` | ≥ 0.60 |
-| **Composite** | `safety_score` | ≥ 0.90 |
-| **Composite** | `quality_score` ← headline KPI | ≥ 0.65 |
+### Quality Metrics (DeepEval — 8 individual + 4 composite)
 
----
+| Category | Metric | Plain English | SLA |
+| --- | --- | --- | --- |
+| RAG Retrieval | `contextual_relevancy` | Did it search the right part of the knowledge base? | ≥ 0.70 |
+| RAG Generation | `faithfulness` | Did it stick to retrieved content, or hallucinate? | ≥ 0.70 |
+| RAG Generation | `answer_relevancy` | Did it actually answer what was asked? | ≥ 0.70 |
+| Helpdesk (GEval) | `completeness` | Did the answer include all steps needed? | ≥ 0.60 |
+| Helpdesk (GEval) | `actionability` | Were the steps specific enough to act on? | ≥ 0.60 |
+| Helpdesk (GEval) | `professional_tone` | Was the language appropriate for a corporate helpdesk? | ≥ 0.60 |
+| Helpdesk (GEval) | `task_resolution` | Could the user fully resolve their issue? | ≥ 0.60 |
+| Safety | `toxicity` | Was there any harmful or offensive content? | ≤ 0.10 |
+| **Composite** | `rag_score` | Mean of faithfulness + answer_relevancy + contextual_relevancy | ≥ 0.70 |
+| **Composite** | `helpdesk_score` | Mean of all 4 GEval metrics | ≥ 0.60 |
+| **Composite** | `safety_score` | 1 − toxicity | ≥ 0.90 |
+| **Composite** | `quality_score` | **Headline KPI — mean of rag, helpdesk, safety** | ≥ 0.65 |
 
-## Speed & Cost Metrics (per run)
+### Speed & Cost Metrics (5 per run)
 
 | Metric | Description |
-|--------|-------------|
-| `ttft_seconds` | Time to First Token — seconds until model starts responding |
-| `input_tokens` | Prompt token count (query + context) |
+| --- | --- |
+| `ttft_seconds` | Time to First Token |
+| `input_tokens` | Prompt token count (query + retrieved context) |
 | `output_tokens` | Response token count |
 | `tokens_per_second` | Generation throughput |
-| `cost_usd` | Cloud-equivalent cost using GPT-4o-mini pricing ($0.15/1M input, $0.60/1M output) |
-
-> Ollama runs locally so actual cost is $0. The estimated cost gives clients a cloud budgeting reference.
-
----
-
-## Key URLs
-
-| Service | URL |
-|---------|-----|
-| AgentPulse Dashboard | http://localhost:8501 |
-| MLflow UI | http://localhost:5000 |
-| Agent API (Swagger) | http://localhost:8001/docs |
-| Ollama API | http://localhost:11434 |
+| `cost_usd` | Estimated cost using GPT-4o-mini pricing ($0.15/1M input, $0.60/1M output) |
 
 ---
 
 ## Project Structure
 
-```
+```text
 ai-evals-framework/
-├── agents/
-│   ├── pipeline.py              # LangGraph graph + FastAPI /invoke + MLflow tracing
-│   ├── intent_classifier.py     # Node 1 — classifies query intent
-│   ├── knowledge_retriever.py   # Node 2 — FAISS semantic RAG
-│   ├── response_generator.py    # Node 3 — Ollama LLM + TTFT + token tracking
-│   └── escalation_decider.py    # Node 4 — L1/L2/L3 routing
-├── data/knowledge_base/         # IT runbook .txt files (swap for client content)
+├── agents/                      Core LangGraph pipeline
+│   ├── pipeline.py              Graph definition + FastAPI /invoke + MLflow tracing
+│   ├── intent_classifier.py     Node 1 — classifies query intent
+│   ├── knowledge_retriever.py   Node 2 — BM25 keyword RAG over IT runbooks (no embeddings)
+│   ├── response_generator.py    Node 3 — Azure OpenAI response + TTFT + token tracking
+│   └── escalation_decider.py    Node 4 — L1/L2/L3 routing logic
+├── data/
+│   └── knowledge_base/          IT runbook .txt files — swap for any client domain
 ├── evals/
-│   ├── eval_runner.py           # DeepEval scorer — run after agent runs
-│   └── ollama_eval_model.py     # Shim: re-exports DeepEval native OllamaModel
+│   ├── eval_runner.py           Main scorer — run after agent calls to log quality metrics
+│   ├── azure_eval_model.py      AzureJudge — custom DeepEval wrapper for Azure OpenAI
+│   ├── ollama_eval_model.py     LEGACY — kept as reference only, not used
+│   └── golden_answers.py        Reference answers for test queries
 ├── load_tests/
-│   └── locustfile.py            # Locust concurrent user simulation
+│   └── locustfile.py            Locust concurrent user simulation
 ├── dashboard/
-│   └── app.py                   # Streamlit 6-tab live dashboard
+│   └── app.py                   Streamlit 8-tab live dashboard
 ├── reports/
-│   ├── templates/report.html    # Jinja2 PDF template
-│   ├── report_generator.py      # matplotlib + xhtml2pdf PDF export
-│   └── output/                  # Generated PDF reports
-├── config.yaml                  # All tuneable settings — edit here, no code changes needed
-├── requirements.txt             # All Python dependencies
-├── start.ps1                    # One-command session startup
-└── WhatWeAreBuilding.md         # Beginner-friendly project overview
+│   ├── report_generator.py      Playwright PDF export
+│   ├── templates/report.html    Jinja2 report template (D3.js charts)
+│   └── output/                  Generated PDFs (gitignored)
+├── docs/
+│   ├── WhatWeAreBuilding.md     Project brief and architecture slides
+│   └── architecture.drawio      System architecture diagram
+├── scripts/
+│   ├── batch_queries.py         Send all 12 demo queries in sequence
+│   └── check_evals.py           Inspect scored runs in MLflow
+├── tests/                       Smoke tests (run: .venv\Scripts\pytest.exe tests\)
+├── .env.example                 Credential template — copy to .env and fill in
+├── .gitignore
+├── config.yaml                  SLA thresholds, service ports, model config
+├── requirements.txt             All Python dependencies
+├── setup.ps1                    First-time setup (run once after cloning)
+└── start.ps1                    Session startup (run every time)
 ```
 
 ---
 
-## Customising for a Client
+## Adapting for a Client
 
-The framework is **agent-agnostic**. To tailor for a specific client:
-- Swap `data/knowledge_base/` with client-specific runbooks or FAQs
-- Update `config.yaml` with client SLA thresholds
-- All agent logic, load tests, eval metrics, and dashboards remain identical
+The framework is **agent-agnostic**. To tailor it for a specific client:
 
-This is a key demo talking point: the evaluation framework works for any domain.
+1. Replace `data/knowledge_base/` with client-specific content (HR policies, product guides, compliance docs, field service manuals)
+2. Update `config.yaml` with client SLA thresholds
+3. Everything else — agent nodes, eval metrics, load tests, dashboard, PDF report — works without modification
+
+The BM25 index rebuilds automatically in-memory on first run with the new knowledge base.
+
+---
+
+## Resetting All Data
+
+Use this for a clean slate — wipes all MLflow runs, traces, and eval scores. Does **not** delete the knowledge base or source code.
+
+```powershell
+# Step 1: Stop all services (must stop before deleting — MLflow holds file locks)
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process streamlit -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# Step 2: Delete all run data
+Remove-Item .\mlruns -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item .\mlartifacts -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item .\mlflow.db -Force -ErrorAction SilentlyContinue
+
+# Step 3: Restart all services fresh
+$env:PYTHONUTF8 = "1"
+.\start.ps1
+```
+
+> The Agent API caches the MLflow experiment ID at startup. Always restart it after deleting mlruns — a stale ID causes 500 errors on every `/invoke` call. `start.ps1` restarts everything, so Step 3 above covers this.
+
+---
+
+## Key URLs
+
+| Service | URL | Notes |
+| --- | --- | --- |
+| AgentPulse Dashboard | <http://localhost:8501> | Main dashboard — 8 tabs |
+| MLflow UI | <http://localhost:5001> | Traces, experiments, metrics |
+| Agent API — Swagger docs | <http://127.0.0.1:8001/docs> | Interactive API explorer |
+| Agent API — health check | <http://127.0.0.1:8001/health> | Returns `{"status":"ok"}` when up |
+| Agent API — invoke | <http://127.0.0.1:8001/invoke> | POST endpoint for queries |
+| Locust UI | <http://localhost:8089> | Only available when Locust is running (not headless) |
 
 ---
 
 ## Built With
 
 - [LangGraph](https://langchain-ai.github.io/langgraph/) — multi-node agent orchestration
-- [MLflow](https://mlflow.org) — experiment tracking, tracing, artifact store
+- [Azure OpenAI](https://azure.microsoft.com/en-us/products/ai-services/openai-service) — LLM inference and eval judging
+- [MLflow](https://mlflow.org) — experiment tracking, distributed tracing, artifact store
 - [DeepEval](https://deepeval.com) — LLM quality evaluation framework
-- [Locust](https://locust.io) — open-source load testing
-- [Ollama](https://ollama.com) — local LLM inference, no API key required
+- [Locust](https://locust.io) — load testing
 - [Streamlit](https://streamlit.io) — live dashboard
-- [FAISS](https://faiss.ai) — vector similarity search for RAG
+- [rank-bm25](https://github.com/dorianbrown/rank_bm25) — BM25Okapi keyword retrieval (no vector index, no embedding cost)
+- [Playwright](https://playwright.dev) — PDF generation with real browser rendering
