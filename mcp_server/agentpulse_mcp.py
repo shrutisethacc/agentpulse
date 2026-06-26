@@ -54,6 +54,20 @@ def _client() -> MlflowClient:
 
 def _download_artifact(run_id: str, filename: str) -> dict:
     client = _client()
+    run = client.get_run(run_id)
+    artifact_uri = run.info.artifact_uri
+
+    # mlflow-artifacts:/exp_id/run_id/artifacts → local mlartifacts/ dir.
+    # Without this, download_artifacts falls back to http://localhost:5000
+    # (MLflow's hardcoded default), ignoring our port 5001.
+    if artifact_uri.startswith("mlflow-artifacts:/"):
+        rel = artifact_uri.replace("mlflow-artifacts:/", "", 1)
+        local_path = _ROOT / "mlartifacts" / rel / filename
+        if local_path.exists():
+            with open(local_path, encoding="utf-8") as f:
+                return json.load(f)
+
+    # Fallback: use MLflow artifact proxy (requires MLflow server on port 5001)
     with tempfile.TemporaryDirectory() as tmpdir:
         local = client.download_artifacts(run_id, filename, dst_path=tmpdir)
         with open(local, encoding="utf-8") as f:
