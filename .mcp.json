@@ -1,9 +1,7 @@
 {
   "mcpServers": {
     "agentpulse": {
-      "command": "C:\\AgentPulse-venv\\Scripts\\python.exe",
-      "args": ["mcp_server/agentpulse_mcp.py"],
-      "cwd": "C:\\Users\\shruti.s.seth\\OneDrive - Accenture\\Digital\\Capability FY26\\AgentTrinity\\AIEvals\\ai-evals-framework"
+      "url": "http://localhost:6001/sse"
     }
   }
 }

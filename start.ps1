@@ -95,6 +95,19 @@ if (Test-Port 8089) {
     Write-Host "      Set users + spawn rate in the browser, then click Start Swarming." -ForegroundColor Yellow
 }
 
+# 5. AgentPulse MCP Server (SSE on port 6001 — allowed by enterprise localhost policy)
+Write-Host "[5/5] AgentPulse MCP Server (port 6001) ..." -NoNewline
+if (Test-Port 6001) {
+    Write-Host " RUNNING  -> http://localhost:6001/sse" -ForegroundColor Green
+} else {
+    Write-Host " NOT RUNNING - starting ..." -ForegroundColor Yellow
+    Start-Process -FilePath "$venv\Scripts\python.exe" `
+        -ArgumentList "mcp_server/agentpulse_mcp.py","--sse","--host","127.0.0.1","--port","6001" `
+        -WorkingDirectory $base -WindowStyle Hidden `
+        -RedirectStandardError "$env:TEMP\agentpulse_mcp_err.log"
+    Write-Host "      MCP Server launched. SSE endpoint: http://localhost:6001/sse" -ForegroundColor Yellow
+}
+
 # Summary
 Write-Host ""
 Write-Host "-----------------------------------------"
@@ -104,6 +117,7 @@ Write-Host "  MLflow UI  : http://localhost:5001"
 Write-Host "  Agent API  : http://127.0.0.1:8001"
 Write-Host "  Streamlit  : http://localhost:8501"
 Write-Host "  Locust UI  : http://localhost:8089   (set users + spawn rate, click Start)"
+Write-Host "  MCP Server : http://localhost:6001/sse  (Claude Code connects here)"
 Write-Host ""
 Write-Host "  LLM        : Azure OpenAI gpt-5.2-chat-2 (responses + embeddings + eval judge)"
 Write-Host ""

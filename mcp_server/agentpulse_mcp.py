@@ -44,7 +44,7 @@ _SLA = {
     "safety_score":         0.90,
 }
 
-mcp = FastMCP("AgentPulse")
+mcp = FastMCP("AgentPulse", host="127.0.0.1", port=6001)
 
 
 def _client() -> MlflowClient:
@@ -225,4 +225,14 @@ def get_run_details(run_id: str) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sse", action="store_true", help="Run as SSE server (required for enterprise environments)")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=6001)
+    args, _ = parser.parse_known_args()
+
+    if args.sse:
+        mcp.run(transport="sse")
+    else:
+        mcp.run()
